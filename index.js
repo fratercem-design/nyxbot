@@ -169,6 +169,21 @@ Respond ONLY in JSON:
         console.log("Completed task:", decision.task);
       }
     }
+// -------------------------
+// Step 6 — Execute Pending Tasks
+// -------------------------
+
+for (let t of tasks) {
+  if (t.status === "pending") {
+    console.log("Running task:", t.task);
+
+    const result = await runSkill(t.task);
+
+    console.log("Task result:", result);
+
+    t.status = "done";
+  }
+}
 
     // Save updated tasks
     fs.writeFileSync("./tasks.json", JSON.stringify({ tasks }, null, 2));
