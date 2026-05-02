@@ -3,30 +3,32 @@ import fs from "fs";
 
 const API_KEY = process.env.DEEPSEEK_API_KEY;
 
+console.log("Starting agent...");
+
 if (!API_KEY) {
-  console.error("Missing DEEPSEEK_API_KEY");
-  process.exit(1);
+  console.error("❌ Missing DEEPSEEK_API_KEY");
 }
 
 let memory = [];
 
-if (fs.existsSync("memory.json")) {
-  try {
+try {
+  if (fs.existsSync("memory.json")) {
     memory = JSON.parse(fs.readFileSync("memory.json"));
-  } catch {
-    memory = [];
   }
+} catch (e) {
+  console.error("Memory load error:", e.message);
+  memory = [];
 }
 
 async function askDeepSeek(prompt) {
   try {
-    const response = await axios.post(
+    const res = await axios.post(
       "https://api.deepseek.com/v1/chat/completions",
       {
         model: "deepseek-chat",
         messages: [
           { role: "system", content: "You are Psyche's AI operator." },
-          ...memory,
+          ...memory.slice(-10),
           { role: "user", content: prompt }
         ]
       },
@@ -34,30 +36,45 @@ async function askDeepSeek(prompt) {
         headers: {
           Authorization: `Bearer ${API_KEY}`,
           "Content-Type": "application/json"
-        }
+        },
+        timeout: 20000
       }
     );
 
-    return response.data.choices[0].message.content;
-  } catch (error) {
-    console.error("API ERROR:", error.response?.data || error.message);
-    return "Error occurred.";
+    return res.data?.choices?.[0]?.message?.content || "No response";
+  } catch (err) {
+    console.error("🔥 API ERROR:", err.response?.data || err.message);
+    return "API failed.";
   }
 }
 
 async function loop() {
-  const input = "Check for tasks and think.";
+  try {
+    console.log("Running loop...");
 
-  const reply = await askDeepSeek(input);
+    const input = "Check for tasks and think.";
+    const reply = await askDeepSeek(input);
 
-  console.log("Agent:", reply);
+    console.log("Agent:", reply);
 
-  memory.push({ role: "user", content: input });
-  memory.push({ role: "assistant", content: reply });
+    memory.push({ role: "user", content: input });
+    memory.push({ role: "assistant", content: reply });
 
-  fs.writeFileSync("memory.json", JSON.stringify(memory, null, 2));
+    fs.writeFileSync("memory.json", JSON.stringify(memory, null, 2));
+  } catch (e) {
+    console.error("🔥 LOOP ERROR:", e.message);
+  }
 
   setTimeout(loop, 30000);
 }
+
+// NEVER let process die
+process.on("uncaughtException", (err) => {
+  console.error("UNCAUGHT:", err);
+});
+
+process.on("unhandledRejection", (err) => {
+  console.error("UNHANDLED:", err);
+});
 
 loop();
