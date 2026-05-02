@@ -1,13 +1,13 @@
 import fs from "fs";
 import path from "path";
 
-// Load memory
-let memory = JSON.parse(fs.readFileSync("./memory.json", "utf8"));
+// -------------------------
+// Load Memory + Tasks
+// -------------------------
 
-// Load tasks
+let memory = JSON.parse(fs.readFileSync("./memory.json", "utf8"));
 let tasks = JSON.parse(fs.readFileSync("./tasks.json", "utf8"));
 
-// Save helpers
 function saveMemory() {
   fs.writeFileSync("./memory.json", JSON.stringify(memory, null, 2));
 }
@@ -16,53 +16,106 @@ function saveTasks() {
   fs.writeFileSync("./tasks.json", JSON.stringify(tasks, null, 2));
 }
 
-import axios from "axios";
-import fs from "fs";
+// -------------------------
+// Memory + Task Helpers
+// -------------------------
 
-const API_KEY = process.env.DEEPSEEK_API_KEY;
-
-console.log("Starting agent...");
-
-if (!API_KEY) {
-  console.error("❌ Missing DEEPSEEK_API_KEY");
+function remember(type, value) {
+  if (!memory[type]) memory[type] = [];
+  memory[type].push(value);
+  saveMemory();
 }
 
-let memory = [];
+function addTask(task) {
+  if (!tasks.tasks) tasks.tasks = [];
+  tasks.tasks.push(task);
+  saveTasks();
+}
 
-try {
-  if (fs.existsSync("memory.json")) {
-    memory = JSON.parse(fs.readFileSync("memory.json"));
+function getNextTask() {
+  if (!tasks.tasks || tasks.tasks.length === 0) return null;
+  return tasks.tasks[0];
+}
+
+function completeTask() {
+  if (!tasks.tasks || tasks.tasks.length === 0) return;
+  tasks.tasks.shift();
+  saveTasks();
+}
+
+// -------------------------
+// Dynamic Skill Loader
+// -------------------------
+
+const skills = {};
+const skillsPath = "./skills";
+
+const skillFiles = fs.readdirSync(skillsPath);
+for (const file of skillFiles) {
+  if (file.endsWith(".js")) {
+    const name = file.replace(".js", "");
+    skills[name] = await import(`${skillsPath}/${file}`);
   }
-} catch (e) {
-  console.error("Memory load error:", e.message);
-  memory = [];
 }
+
+// -------------------------
+// DeepSeek Placeholder
+// (Step 3 will replace this)
+// -------------------------
 
 async function askDeepSeek(prompt) {
-  try {
-    const res = await axios.post(
-      "https://api.deepseek.com/v1/chat/completions",
-      {
-        model: "deepseek-chat",
-        messages: [
-          { role: "system", content: "You are Psyche's AI operator." },
-          ...memory.slice(-10),
-          { role: "user", content: prompt }
-        ]
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${API_KEY}`,
-          "Content-Type": "application/json"
-        },
-        timeout: 20000
-      }
-    );
+  return `DeepSeek placeholder response for: ${prompt}`;
+}
 
-    return res.data?.choices?.[0]?.message?.content || "No response";
-  } catch (err) {
-    console.error("🔥 API ERROR:", err.response?.data || err.message);
-    return "API failed.";
+// -------------------------
+// Skill Router
+// -------------------------
+
+async function handleSkillCommand(prompt) {
+  if (!prompt.startsWith("skill:")) return null;
+
+  const [_, skillName, ...rest] = prompt.split(" ");
+  const arg = rest.join(" ");
+
+  if (!skills[skillName]) {
+    return `Skill '${skillName}' not found.`;
+  }
+
+  const fn = skills[skillName][skillName];
+  if (!fn) {
+    return `Skill '${skillName}' exists but has no callable function.`;
+  }
+
+  return await fn(arg);
+}
+
+// -------------------------
+// Input Logic
+// -------------------------
+
+const nextTask = getNextTask();
+
+const input = nextTask
+  ? `Task: ${nextTask}. Think and act.`
+  : "Check for tasks and think.";
+
+// -------------------------
+// Main Execution
+// -------------------------
+
+async function main() {
+  const skillResult = await handleSkillCommand(input);
+
+  if (skillResult) {
+    console.log("Skill result:", skillResult);
+    return;
+  }
+
+  const response = await askDeepSeek(input);
+  console.log("DeepSeek:", response);
+}
+
+main();
   }
 }
 
@@ -96,3 +149,4 @@ process.on("unhandledRejection", (err) => {
 });
 
 loop();
+
