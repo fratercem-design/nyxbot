@@ -1,3 +1,21 @@
+import fs from "fs";
+import path from "path";
+
+// Load memory
+let memory = JSON.parse(fs.readFileSync("./memory.json", "utf8"));
+
+// Load tasks
+let tasks = JSON.parse(fs.readFileSync("./tasks.json", "utf8"));
+
+// Save helpers
+function saveMemory() {
+  fs.writeFileSync("./memory.json", JSON.stringify(memory, null, 2));
+}
+
+function saveTasks() {
+  fs.writeFileSync("./tasks.json", JSON.stringify(tasks, null, 2));
+}
+
 import axios from "axios";
 import fs from "fs";
 
