@@ -29,7 +29,7 @@ async function askDeepSeek(prompt) {
 }
 
 async function loop() {
-  const input = "Check for tasks and think.";
+  const input = "Look at memory.json and decide if any action is needed. If yes, describe it.";
 
   const reply = await askDeepSeek(input);
 
