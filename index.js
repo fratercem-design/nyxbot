@@ -172,6 +172,21 @@ Respond ONLY in JSON:
 
     // Save updated tasks
     fs.writeFileSync("./tasks.json", JSON.stringify({ tasks }, null, 2));
+// -------------------------
+// Step 5 — Skill Execution Engine
+// -------------------------
+
+import { research } from "./skills/research.js";
+
+async function runSkill(task) {
+  const lower = task.toLowerCase();
+
+  if (lower.includes("research")) {
+    return await research(task);
+  }
+
+  return "No skill matched.";
+}
 
   } catch (e) {
     console.error("Loop error:", e.message);
