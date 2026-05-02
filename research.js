@@ -1,3 +1,2 @@
-export async function research(query) {
-  return `Research result for: ${query}`;
-}
+const { research } = require("./skills/research.js");
+
