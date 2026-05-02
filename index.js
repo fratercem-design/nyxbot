@@ -1,5 +1,7 @@
-import fs from "fs";
-import path from "path";
+const fs = require("fs");
+const path = require("path");
+
+
 
 // -------------------------
 // Load Memory + Tasks
@@ -54,7 +56,8 @@ const skillFiles = fs.readdirSync(skillsPath);
 for (const file of skillFiles) {
   if (file.endsWith(".js")) {
     const name = file.replace(".js", "");
-    skills[name] = await import(`${skillsPath}/${file}`);
+    skills[name] = require(`${skillsPath}/${file}`);
+
   }
 }
 
@@ -191,7 +194,7 @@ for (let t of tasks) {
 // Step 5 — Skill Execution Engine
 // -------------------------
 
-import { research } from "./skills/research.js";
+const { research } = require("./skills/research.js");
 
 async function runSkill(task) {
   const lower = task.toLowerCase();
