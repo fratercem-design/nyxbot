@@ -1,3 +1,11 @@
-{
-  "tasks": []
+function loadTasks() {
+  try {
+    return JSON.parse(fs.readFileSync("tasks.json"));
+  } catch {
+    return [];
+  }
+}
+
+function saveTasks(tasks) {
+  fs.writeFileSync("tasks.json", JSON.stringify(tasks, null, 2));
 }
