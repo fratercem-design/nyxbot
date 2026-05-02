@@ -116,3 +116,70 @@ async function main() {
 }
 
 main();
+// -------------------------
+// Autonomous Agent Loop (Step 3)
+// -------------------------
+
+async function loop() {
+  try {
+    console.log("Running agent loop...");
+
+    // Load tasks fresh each cycle
+    const tasks = JSON.parse(fs.readFileSync("./tasks.json", "utf8")).tasks || [];
+
+    const prompt = `
+You are an autonomous AI agent.
+
+Current tasks:
+${JSON.stringify(tasks, null, 2)}
+
+Decide:
+1. Should a new task be created?
+2. Should an existing task be completed?
+
+Respond ONLY in JSON:
+{
+  "action": "create" | "complete" | "none",
+  "task": "task description"
+}
+`;
+
+    const decisionRaw = await askDeepSeek(prompt);
+    console.log("Decision:", decisionRaw);
+
+    let decision;
+    try {
+      decision = JSON.parse(decisionRaw);
+    } catch {
+      console.log("Invalid JSON from model.");
+      return setTimeout(loop, 30000);
+    }
+
+    // CREATE TASK
+    if (decision.action === "create") {
+      tasks.push({ task: decision.task, status: "pending" });
+      console.log("Created task:", decision.task);
+    }
+
+    // COMPLETE TASK
+    if (decision.action === "complete") {
+      const t = tasks.find(t => t.task === decision.task);
+      if (t) {
+        t.status = "done";
+        console.log("Completed task:", decision.task);
+      }
+    }
+
+    // Save updated tasks
+    fs.writeFileSync("./tasks.json", JSON.stringify({ tasks }, null, 2));
+
+  } catch (e) {
+    console.error("Loop error:", e.message);
+  }
+
+  // Run again in 30 seconds
+  setTimeout(loop, 30000);
+}
+
+// Start the autonomous loop
+loop();
