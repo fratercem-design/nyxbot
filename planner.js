@@ -1,3 +1,7 @@
+console.log("ENV CHECK:", {
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY ? "loaded" : "missing",
+  OTHER_API_KEY: process.env.OTHER_API_KEY ? "loaded" : "missing"
+});
 const axios = require("axios");
 const fs = require("fs");
 
