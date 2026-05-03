@@ -12,7 +12,7 @@ async function createPlan(goal) {
         messages: [
           {
             role: "system",
-            content: "You create step-by-step execution plans."
+            content: "You create structured execution plans."
           },
           {
             role: "user",
