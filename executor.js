@@ -54,10 +54,33 @@ async function runSkill(task) {
     return await research(task);
   }
 
-  console.log("[Executor] No skill found. Generating...");
+  console.log("[Executor] Generating new skill...");
   await generateSkill(task);
 
   return JSON.stringify({ message: "Skill generated" });
+}
+
+// ---------- PICK NEXT STEP ----------
+function getNextStep(plans) {
+  const now = Date.now();
+
+  let candidates = [];
+
+  for (let plan of plans) {
+    for (let step of plan.steps) {
+      if (
+        step.status === "pending" &&
+        step.run_at <= now
+      ) {
+        candidates.push({ plan, step });
+      }
+    }
+  }
+
+  // sort by priority
+  candidates.sort((a, b) => b.step.priority - a.step.priority);
+
+  return candidates[0];
 }
 
 // ---------- LOOP ----------
@@ -67,44 +90,59 @@ async function executorLoop() {
 
     const plans = loadPlans();
 
-    for (let plan of plans) {
-      const step = plan.steps.find(s => s.status === "pending");
+    const next = getNextStep(plans);
 
-      if (step) {
-        console.log("[Executor] Executing:", step.task);
+    if (!next) {
+      console.log("[Executor] No ready tasks.");
+      return setTimeout(executorLoop, 30000);
+    }
 
-        const result = await runSkill(step.task);
+    const { plan, step } = next;
 
-        console.log("[Executor] Result:", result);
+    console.log("[Executor] Executing:", step.task);
 
-        step.status = "done";
+    step.status = "running";
 
-        // ---------- STORE KNOWLEDGE ----------
-        try {
-          const parsed = JSON.parse(result);
-          const knowledge = loadKnowledge();
+    try {
+      const result = await runSkill(step.task);
 
-          for (let item of parsed) {
-            const entry = {
-              topic: step.task,
-              source: item.url,
-              insights: item.summary.insights,
-              facts: item.summary.facts,
-              actions: item.summary.actions,
-              timestamp: Date.now()
-            };
+      console.log("[Executor] Result:", result);
 
-            knowledge.push(entry);
-            await addToVector(entry);
-          }
+      step.status = "done";
 
-          saveKnowledge(cleanAndRank(knowledge));
+      // ---------- STORE KNOWLEDGE ----------
+      try {
+        const parsed = JSON.parse(result);
+        const knowledge = loadKnowledge();
 
-        } catch {
-          console.log("[Executor] Knowledge parse failed.");
+        for (let item of parsed) {
+          const entry = {
+            topic: step.task,
+            source: item.url,
+            insights: item.summary.insights,
+            facts: item.summary.facts,
+            actions: item.summary.actions,
+            timestamp: Date.now()
+          };
+
+          knowledge.push(entry);
+          await addToVector(entry);
         }
 
-        break; // one step per cycle
+        saveKnowledge(cleanAndRank(knowledge));
+
+      } catch {}
+
+    } catch (err) {
+      console.log("[Executor] Step failed:", err.message);
+
+      step.retries += 1;
+
+      if (step.retries >= 3) {
+        step.status = "failed";
+      } else {
+        step.status = "pending";
+        step.run_at = Date.now() + 60000 * step.retries; // retry delay
       }
     }
 
