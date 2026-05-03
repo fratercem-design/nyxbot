@@ -2,43 +2,29 @@ const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 
+const { searchKnowledge } = require("./memory.js");
+
 const API_KEY = process.env.DEEPSEEK_API_KEY;
 
-// ---------- ENSURE OUTPUT FOLDER ----------
+// ensure outputs folder
 const OUTPUT_DIR = path.join(__dirname, "..", "outputs");
 
 if (!fs.existsSync(OUTPUT_DIR)) {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-  console.log("[Content] Created outputs folder");
-}
-
-// ---------- LOAD JSON ----------
-function loadJSON(file) {
-  try {
-    return JSON.parse(fs.readFileSync(file));
-  } catch {
-    return [];
-  }
-}
-
-// ---------- GET KNOWLEDGE ----------
-function getTopKnowledge(limit = 5) {
-  const knowledge = loadJSON("knowledge.json");
-  return knowledge.slice(-limit);
 }
 
 // ---------- BUILD PROMPT ----------
-function buildPrompt(topic, knowledge) {
+function buildPrompt(topic, memory) {
   return `
 You are a high-level content creator.
 
 Topic:
 ${topic}
 
-Knowledge:
-${JSON.stringify(knowledge, null, 2)}
+Accumulated knowledge:
+${JSON.stringify(memory, null, 2)}
 
-Create structured content.
+Create high-value content.
 
 Return JSON:
 {
@@ -50,16 +36,19 @@ Return JSON:
 }
 
 Rules:
-- Clear, valuable, and original
-- No fluff
-- Actionable insights
+- Use accumulated knowledge
+- Avoid repetition
+- Provide original insight
+- Be clear and useful
 `;
 }
 
-// ---------- GENERATE CONTENT ----------
+// ---------- GENERATE ----------
 async function generateContent(task) {
   try {
-    const knowledge = getTopKnowledge(5);
+    const topic = task.replace("write", "").replace("content", "").trim();
+
+    const memory = searchKnowledge(topic);
 
     const res = await axios.post(
       "https://api.deepseek.com/v1/chat/completions",
@@ -69,11 +58,11 @@ async function generateContent(task) {
         messages: [
           {
             role: "system",
-            content: "You generate high-quality content."
+            content: "You generate high-quality content from knowledge."
           },
           {
             role: "user",
-            content: buildPrompt(task, knowledge)
+            content: buildPrompt(topic, memory)
           }
         ]
       },
@@ -88,7 +77,7 @@ async function generateContent(task) {
     const output = JSON.parse(res.data.choices[0].message.content);
 
     const fileName =
-      task.toLowerCase().replace(/[^a-z0-9]/g, "_").slice(0, 40) + ".json";
+      topic.toLowerCase().replace(/[^a-z0-9]/g, "_").slice(0, 40) + ".json";
 
     const filePath = path.join(OUTPUT_DIR, fileName);
 
@@ -99,7 +88,7 @@ async function generateContent(task) {
     return JSON.stringify(output);
 
   } catch (err) {
-    console.error("CONTENT ERROR:", err.message);
+    console.error("[Content] Error:", err.message);
 
     return JSON.stringify({
       error: "Content generation failed"
