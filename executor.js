@@ -1,5 +1,7 @@
 const fs = require("fs");
 
+const { loadSkills } = require("./skills/index.js");
+
 // ---------- JSON ----------
 function loadJSON(file) {
   try {
@@ -20,6 +22,21 @@ function loadPlans() {
 
 function savePlans(plans) {
   saveJSON("plans.json", plans);
+}
+
+// ---------- SKILL EXECUTION ----------
+async function runSkill(task) {
+  const skills = loadSkills();
+
+  for (let name in skills) {
+    if (task.toLowerCase().includes(name)) {
+      console.log("[Executor] Using skill:", name);
+      return await skills[name](task);
+    }
+  }
+
+  console.log("[Executor] No skill matched. Using basic.");
+  return await skills["basic"](task);
 }
 
 // ---------- PICK NEXT STEP ----------
@@ -51,18 +68,16 @@ async function executorLoop() {
 
     console.log("[Executor] Executing:", step.task);
 
-    // mark running
     step.status = "running";
     savePlans(plans);
 
-    // simulate work (no AI yet)
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // RUN SKILL
+    const result = await runSkill(step.task);
 
-    // mark done
+    console.log("[Executor] Result:", result);
+
     step.status = "done";
     savePlans(plans);
-
-    console.log("[Executor] Completed:", step.task);
 
   } catch (e) {
     console.error("[Executor] Error:", e.message);
