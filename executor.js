@@ -6,6 +6,13 @@ const { research } = require("./skills/research.js");
 const { cleanAndRank } = require("./utils/knowledge.js");
 const { addToVector } = require("./utils/vector.js");
 
+const {
+  loadMissions,
+  saveMissions,
+  updateMissionProgress
+} = require("./utils/missions.js");
+
+// ---------- JSON UTILS ----------
 function loadJSON(file) {
   try {
     return JSON.parse(fs.readFileSync(file));
@@ -18,6 +25,7 @@ function saveJSON(file, data) {
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
 }
 
+// ---------- DATA ----------
 function loadPlans() {
   return loadJSON("plans.json");
 }
@@ -43,7 +51,7 @@ async function runSkill(task) {
       try {
         console.log("[Executor] Using skill:", name);
         return await skills[name](task);
-      } catch {
+      } catch (err) {
         console.log("[Executor] Skill failed. Regenerating:", name);
         await generateSkill(task);
       }
@@ -54,13 +62,15 @@ async function runSkill(task) {
     return await research(task);
   }
 
-  console.log("[Executor] Generating new skill...");
+  console.log("[Executor] No skill found. Generating...");
   await generateSkill(task);
 
-  return JSON.stringify({ message: "Skill generated" });
+  return JSON.stringify({
+    message: "Skill generated"
+  });
 }
 
-// ---------- PICK NEXT STEP ----------
+// ---------- PRIORITY SCHEDULER ----------
 function getNextStep(plans) {
   const now = Date.now();
 
@@ -77,7 +87,7 @@ function getNextStep(plans) {
     }
   }
 
-  // sort by priority
+  // sort by step priority DESC
   candidates.sort((a, b) => b.step.priority - a.step.priority);
 
   return candidates[0];
@@ -126,12 +136,37 @@ async function executorLoop() {
           };
 
           knowledge.push(entry);
+
           await addToVector(entry);
         }
 
         saveKnowledge(cleanAndRank(knowledge));
 
-      } catch {}
+      } catch {
+        console.log("[Executor] Knowledge parse failed.");
+      }
+
+      // ---------- MISSION PROGRESS ----------
+      try {
+        const missions = loadMissions();
+
+        const mission = missions.find(
+          m => m.mission === plan.mission
+        );
+
+        if (mission) {
+          updateMissionProgress(mission, 5);
+          saveMissions(missions);
+
+          console.log(
+            "[Executor] Mission progress:",
+            mission.progress
+          );
+        }
+
+      } catch {
+        console.log("[Executor] Mission update failed.");
+      }
 
     } catch (err) {
       console.log("[Executor] Step failed:", err.message);
@@ -140,9 +175,17 @@ async function executorLoop() {
 
       if (step.retries >= 3) {
         step.status = "failed";
+        console.log("[Executor] Step marked as failed.");
       } else {
         step.status = "pending";
-        step.run_at = Date.now() + 60000 * step.retries; // retry delay
+
+        // exponential backoff
+        step.run_at = Date.now() + 60000 * step.retries;
+
+        console.log(
+          "[Executor] Retrying later. Attempt:",
+          step.retries
+        );
       }
     }
 
