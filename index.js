@@ -1,144 +1,100 @@
+const axios = require("axios");
 const fs = require("fs");
-const path = require("path");
 
+const { research } = require("./skills/research.js");
 
+const API_KEY = process.env.DEEPSEEK_API_KEY;
 
-// -------------------------
-// Load Memory + Tasks
-// -------------------------
+console.log("Starting agent...");
 
-let memory = JSON.parse(fs.readFileSync("./memory.json", "utf8"));
-let tasks = JSON.parse(fs.readFileSync("./tasks.json", "utf8"));
-
-function saveMemory() {
-  fs.writeFileSync("./memory.json", JSON.stringify(memory, null, 2));
-}
-
-function saveTasks() {
-  fs.writeFileSync("./tasks.json", JSON.stringify(tasks, null, 2));
-}
-
-// -------------------------
-// Memory + Task Helpers
-// -------------------------
-
-function remember(type, value) {
-  if (!memory[type]) memory[type] = [];
-  memory[type].push(value);
-  saveMemory();
-}
-
-function addTask(task) {
-  if (!tasks.tasks) tasks.tasks = [];
-  tasks.tasks.push(task);
-  saveTasks();
-}
-
-function getNextTask() {
-  if (!tasks.tasks || tasks.tasks.length === 0) return null;
-  return tasks.tasks[0];
-}
-
-function completeTask() {
-  if (!tasks.tasks || tasks.tasks.length === 0) return;
-  tasks.tasks.shift();
-  saveTasks();
-}
-
-// -------------------------
-// Dynamic Skill Loader
-// -------------------------
-
-const skills = {};
-const skillsPath = "./skills";
-
-const skillFiles = fs.readdirSync(skillsPath);
-for (const file of skillFiles) {
-  if (file.endsWith(".js")) {
-    const name = file.replace(".js", "");
-    skills[name] = require(`${skillsPath}/${file}`);
-
+// ---------- MEMORY ----------
+function loadJSON(file) {
+  try {
+    return JSON.parse(fs.readFileSync(file));
+  } catch {
+    return [];
   }
 }
 
-// -------------------------
-// DeepSeek Placeholder
-// (Real API added in Step 8)
-// -------------------------
+function saveJSON(file, data) {
+  fs.writeFileSync(file, JSON.stringify(data, null, 2));
+}
 
+let memory = loadJSON("memory.json");
+
+// ---------- TASKS ----------
+function loadTasks() {
+  return loadJSON("tasks.json");
+}
+
+function saveTasks(tasks) {
+  saveJSON("tasks.json", tasks);
+}
+
+// ---------- KNOWLEDGE ----------
+function loadKnowledge() {
+  return loadJSON("knowledge.json");
+}
+
+function saveKnowledge(data) {
+  saveJSON("knowledge.json", data);
+}
+
+// ---------- DEEPSEEK ----------
 async function askDeepSeek(prompt) {
-  return `DeepSeek placeholder response for: ${prompt}`;
+  try {
+    const res = await axios.post(
+      "https://api.deepseek.com/v1/chat/completions",
+      {
+        model: "deepseek-chat",
+        messages: [
+          { role: "system", content: "You are Psyche's AI operator." },
+          ...memory.slice(-10),
+          { role: "user", content: prompt }
+        ]
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${API_KEY}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    return res.data.choices[0].message.content;
+
+  } catch (err) {
+    console.error("API ERROR:", err.response?.data || err.message);
+    return "{}";
+  }
 }
 
-// -------------------------
-// Skill Router
-// -------------------------
-
-async function handleSkillCommand(prompt) {
-  if (!prompt.startsWith("skill:")) return null;
-
-  const [_, skillName, ...rest] = prompt.split(" ");
-  const arg = rest.join(" ");
-
-  if (!skills[skillName]) {
-    return `Skill '${skillName}' not found.`;
+// ---------- SKILL EXECUTION ----------
+async function runSkill(task) {
+  if (task.toLowerCase().includes("research")) {
+    return await research(task);
   }
-
-  const fn = skills[skillName][skillName];
-  if (!fn) {
-    return `Skill '${skillName}' exists but has no callable function.`;
-  }
-
-  return await fn(arg);
+  return JSON.stringify({ message: "No matching skill" });
 }
 
-// -------------------------
-// Input Logic
-// -------------------------
-
-const nextTask = getNextTask();
-
-const input = nextTask
-  ? `Task: ${nextTask}. Think and act.`
-  : "Check for tasks and think.";
-
-// -------------------------
-// Main Execution
-// -------------------------
-
-async function main() {
-  const skillResult = await handleSkillCommand(input);
-
-  if (skillResult) {
-    console.log("Skill result:", skillResult);
-    return;
-  }
-
-  const response = await askDeepSeek(input);
-  console.log("DeepSeek:", response);
-}
-
-main();
-// -------------------------
-// Autonomous Agent Loop (Step 3)
-// -------------------------
-
+// ---------- MAIN LOOP ----------
 async function loop() {
   try {
     console.log("Running agent loop...");
 
-    // Load tasks fresh each cycle
-    const tasks = JSON.parse(fs.readFileSync("./tasks.json", "utf8")).tasks || [];
+    const tasks = loadTasks();
+    const knowledge = loadKnowledge();
 
     const prompt = `
 You are an autonomous AI agent.
 
+Known knowledge:
+${JSON.stringify(knowledge.slice(-5), null, 2)}
+
 Current tasks:
 ${JSON.stringify(tasks, null, 2)}
 
-Decide:
-1. Should a new task be created?
-2. Should an existing task be completed?
+If something requires learning or analysis, create a task with "research".
 
 Respond ONLY in JSON:
 {
@@ -148,81 +104,74 @@ Respond ONLY in JSON:
 `;
 
     const decisionRaw = await askDeepSeek(prompt);
-    console.log("Decision:", decisionRaw);
+
+    console.log("Decision raw:", decisionRaw);
 
     let decision;
     try {
       decision = JSON.parse(decisionRaw);
     } catch {
-      console.log("Invalid JSON from model.");
+      console.log("Invalid JSON decision.");
       return setTimeout(loop, 30000);
     }
 
-    // CREATE TASK
+    // ---------- HANDLE DECISION ----------
     if (decision.action === "create") {
       tasks.push({ task: decision.task, status: "pending" });
-      console.log("Created task:", decision.task);
     }
 
-    // COMPLETE TASK
     if (decision.action === "complete") {
       const t = tasks.find(t => t.task === decision.task);
-      if (t) {
+      if (t) t.status = "done";
+    }
+
+    // ---------- EXECUTE TASKS ----------
+    for (let t of tasks) {
+      if (t.status === "pending") {
+        const result = await runSkill(t.task);
+
+        console.log("Task result:", result);
+
+        try {
+          const parsed = JSON.parse(result);
+          const knowledge = loadKnowledge();
+
+          for (let item of parsed) {
+            knowledge.push({
+              topic: t.task,
+              source: item.url,
+              insights: item.summary.insights,
+              facts: item.summary.facts,
+              actions: item.summary.actions,
+              timestamp: Date.now()
+            });
+          }
+
+          saveKnowledge(knowledge);
+        } catch {
+          console.log("Could not store knowledge.");
+        }
+
         t.status = "done";
-        console.log("Completed task:", decision.task);
       }
     }
-// -------------------------
-// Step 6 — Execute Pending Tasks
-// -------------------------
 
-for (let t of tasks) {
-  if (t.status === "pending") {
-    console.log("Running task:", t.task);
+    saveTasks(tasks);
 
-    const result = await runSkill(t.task);
-
-    console.log("Task result:", result);
-
-    t.status = "done";
-  }
-}
-
-    // Save updated tasks
-    fs.writeFileSync("./tasks.json", JSON.stringify({ tasks }, null, 2));
-// -------------------------
-// Step 5 — Skill Execution Engine
-// -------------------------
-
-const { research } = require("./skills/research.js");
-
-async function runSkill(task) {
-  const lower = task.toLowerCase();
-
-  if (lower.includes("research")) {
-    return await research(task);
+  } catch (e) {
+    console.error("Loop error:", e.message);
   }
 
-  return "No skill matched.";
+  setTimeout(loop, 30000);
 }
 
-const prompt = `
-You are an autonomous AI agent.
+// ---------- SAFETY ----------
+process.on("uncaughtException", (err) => {
+  console.error("UNCAUGHT:", err);
+});
 
-If a task requires understanding, analysis, or learning,
-create a task that includes the word "research".
+process.on("unhandledRejection", (err) => {
+  console.error("UNHANDLED:", err);
+});
 
-Focus on:
-- extracting insights
-- learning useful knowledge
-- producing value
-
-Current tasks:
-${JSON.stringify(tasks, null, 2)}
-
-Respond ONLY in JSON:
-{
-  "action": "create" | "complete" | "none",
-  "task": "task description"
-}
-`;
+loop();
