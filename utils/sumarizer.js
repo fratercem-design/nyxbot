@@ -1,73 +1,72 @@
 const axios = require("axios");
-const cheerio = require("cheerio");
-const { summarize } = require("../utils/summarizer.js");
+const { searchKnowledge } = require("./memory.js");
 
-// extract clean text
-function extractText(html) {
-  const $ = cheerio.load(html);
+const API_KEY = process.env.DEEPSEEK_API_KEY;
 
-  $("script, style, noscript").remove();
-
-  return $("body")
-    .text()
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 2000);
-}
-
-// search
-async function search(query) {
-  const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
-
-  const res = await axios.get(url);
-
-  const $ = cheerio.load(res.data);
-
-  const links = [];
-
-  $(".result__a").each((i, el) => {
-    const href = $(el).attr("href");
-    if (href) links.push(href);
-  });
-
-  return links.slice(0, 3);
-}
-
-// main
-async function research(task) {
+async function summarize(text, topic) {
   try {
-    const query = task.replace("research", "").trim();
+    // ---------- GET MEMORY ----------
+    const memory = searchKnowledge(topic);
 
-    console.log("[Research] Searching:", query);
+    const res = await axios.post(
+      "https://api.deepseek.com/v1/chat/completions",
+      {
+        model: "deepseek-chat",
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content: "You extract useful knowledge and build on prior memory."
+          },
+          {
+            role: "user",
+            content: `
+You are analyzing new information.
 
-    const links = await search(query);
+Topic:
+${topic}
 
-    let results = [];
+Previous knowledge:
+${JSON.stringify(memory, null, 2)}
 
-    for (let url of links) {
-      try {
-        const res = await axios.get(url, { timeout: 5000 });
+New content:
+${text.slice(0, 4000)}
 
-        const text = extractText(res.data);
+Return JSON:
+{
+  "insights": ["..."],
+  "facts": ["..."],
+  "actions": ["..."]
+}
 
-        const summary = await summarize(text);
-
-        results.push({
-          url,
-          summary
-        });
-
-      } catch {
-        console.log("[Research] Failed:", url);
+Rules:
+- Build on previous knowledge if relevant
+- Avoid repeating past insights
+- Focus on new value
+- Be concise
+`
+          }
+        ]
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${API_KEY}`,
+          "Content-Type": "application/json"
+        }
       }
-    }
+    );
 
-    return JSON.stringify(results);
+    return JSON.parse(res.data.choices[0].message.content);
 
   } catch (err) {
-    console.error("[Research] Error:", err.message);
-    return JSON.stringify([]);
+    console.error("[Summarizer] Error:", err.message);
+
+    return {
+      insights: [],
+      facts: [],
+      actions: []
+    };
   }
 }
 
-module.exports = research;
+module.exports = { summarize };
