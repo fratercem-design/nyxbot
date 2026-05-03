@@ -32,8 +32,9 @@ async function askLLM(prompt) {
       "https://api.deepseek.com/v1/chat/completions",
       {
         model: "deepseek-chat",
+        response_format: { type: "json_object" },
         messages: [
-          { role: "system", content: "You are a strategic planning agent." },
+          { role: "system", content: "You are a strategic planner." },
           { role: "user", content: prompt }
         ]
       },
@@ -45,10 +46,11 @@ async function askLLM(prompt) {
       }
     );
 
-    return res.data.choices[0].message.content;
+    return JSON.parse(res.data.choices[0].message.content);
+
   } catch (e) {
-    console.error("Planner LLM error:", e.message);
-    return "{}";
+    console.error("Planner error:", e.message);
+    return {};
   }
 }
 
@@ -58,48 +60,40 @@ async function plannerLoop() {
 
     const plans = loadPlans();
 
-    // Pull relevant memory to guide new goals
-    const relevant = await queryVector("long-term goals research strategy", 5);
+    const relevant = await queryVector("strategy planning goals", 5);
 
-    const prompt = `
-You are an AI planner.
-
+    const decision = await askLLM(`
 Relevant knowledge:
 ${relevant.join("\n---\n")}
 
 Existing plans:
 ${JSON.stringify(plans, null, 2)}
 
-Create ONE new high-level goal if useful.
-Do not duplicate existing goals.
+Create ONE new high-value goal.
 
-Respond ONLY JSON:
+Return JSON:
 {
   "action": "create" | "none",
-  "goal": "..."
+  "goal": "...",
+  "priority": 1-10
 }
-`;
-
-    const raw = await askLLM(prompt);
-    console.log("[Planner] Decision:", raw);
-
-    let decision;
-    try {
-      decision = JSON.parse(raw);
-    } catch {
-      return setTimeout(plannerLoop, 60000);
-    }
+`);
 
     if (decision.action === "create") {
-      console.log("[Planner] Creating plan for:", decision.goal);
+      console.log("[Planner] New goal:", decision.goal);
 
       const plan = await createPlan(decision.goal);
 
       plans.push({
         goal: decision.goal,
-        steps: plan.steps.map(s => ({
+        priority: decision.priority || 5,
+        created_at: Date.now(),
+        steps: plan.steps.map((s, i) => ({
           ...s,
-          status: "pending"
+          status: "pending",
+          priority: 10 - i, // earlier steps higher
+          run_at: Date.now(),
+          retries: 0
         }))
       });
 
