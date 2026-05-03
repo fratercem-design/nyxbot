@@ -1,116 +1,73 @@
 const axios = require("axios");
+const cheerio = require("cheerio");
+const { summarize } = require("../utils/summarizer.js");
 
-const FIRECRAWL_KEY = process.env.FIRECRAWL_API_KEY;
-const DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY;
+// extract clean text
+function extractText(html) {
+  const $ = cheerio.load(html);
 
-// ---------- SUMMARIZE ----------
-async function summarize(text) {
-  try {
-    const res = await axios.post(
-      "https://api.deepseek.com/v1/chat/completions",
-      {
-        model: "deepseek-chat",
-        response_format: { type: "json_object" },
-        messages: [
-          {
-            role: "system",
-            content: "You ONLY return valid JSON. No explanations."
-          },
-          {
-            role: "user",
-            content: `
-You are analyzing scraped web content.
+  $("script, style, noscript").remove();
 
-Return JSON:
-{
-  "insights": ["..."],
-  "facts": ["..."],
-  "actions": ["..."]
+  return $("body")
+    .text()
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 2000);
 }
 
-Content:
-${text.slice(0, 4000)}
-`
-          }
-        ]
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${DEEPSEEK_KEY}`,
-          "Content-Type": "application/json"
-        }
-      }
-    );
+// search
+async function search(query) {
+  const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
 
-    return res.data.choices[0].message.content;
+  const res = await axios.get(url);
 
-  } catch (err) {
-    console.error("SUMMARY ERROR:", err.response?.data || err.message);
-    return JSON.stringify({
-      insights: [],
-      facts: [],
-      actions: []
-    });
-  }
+  const $ = cheerio.load(res.data);
+
+  const links = [];
+
+  $(".result__a").each((i, el) => {
+    const href = $(el).attr("href");
+    if (href) links.push(href);
+  });
+
+  return links.slice(0, 3);
 }
 
-// ---------- RESEARCH ----------
-async function research(query) {
+// main
+async function research(task) {
   try {
-    const searchRes = await axios.post(
-      "https://api.firecrawl.dev/v1/search",
-      {
-        query: query,
-        limit: 2
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${FIRECRAWL_KEY}`,
-          "Content-Type": "application/json"
-        }
-      }
-    );
+    const query = task.replace("research", "").trim();
 
-    const results = searchRes.data.data;
+    console.log("[Research] Searching:", query);
 
-    let output = [];
+    const links = await search(query);
 
-    for (let r of results) {
-      const scrapeRes = await axios.post(
-        "https://api.firecrawl.dev/v1/scrape",
-        { url: r.url },
-        {
-          headers: {
-            Authorization: `Bearer ${FIRECRAWL_KEY}`,
-            "Content-Type": "application/json"
-          }
-        }
-      );
+    let results = [];
 
-      const content = scrapeRes.data.data?.markdown || "";
-
-      const summaryRaw = await summarize(content);
-
-      let summary;
+    for (let url of links) {
       try {
-        summary = JSON.parse(summaryRaw);
-      } catch {
-        summary = { insights: [], facts: [], actions: [] };
-      }
+        const res = await axios.get(url, { timeout: 5000 });
 
-      output.push({
-        title: r.title,
-        url: r.url,
-        summary: summary
-      });
+        const text = extractText(res.data);
+
+        const summary = await summarize(text);
+
+        results.push({
+          url,
+          summary
+        });
+
+      } catch {
+        console.log("[Research] Failed:", url);
+      }
     }
 
-    return JSON.stringify(output, null, 2);
+    return JSON.stringify(results);
 
   } catch (err) {
-    console.error("RESEARCH ERROR:", err.response?.data || err.message);
-    return JSON.stringify({ error: "Research failed" });
+    console.error("[Research] Error:", err.message);
+    return JSON.stringify([]);
   }
 }
 
-module.exports = { research };
+module.exports = research;
