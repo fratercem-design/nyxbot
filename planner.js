@@ -1,15 +1,12 @@
 const axios = require("axios");
 const fs = require("fs");
 
-const { queryVector } = require("./utils/vector.js");
+const { searchKnowledge } = require("./utils/memory.js");
 const { createPlan } = require("./utils/planner.js");
-const {
-  loadMissions,
-  getActiveMission
-} = require("./utils/missions.js");
 
 const API_KEY = process.env.DEEPSEEK_API_KEY;
 
+// ---------- JSON ----------
 function loadJSON(file) {
   try {
     return JSON.parse(fs.readFileSync(file));
@@ -22,6 +19,7 @@ function saveJSON(file, data) {
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
 }
 
+// ---------- DATA ----------
 function loadPlans() {
   return loadJSON("plans.json");
 }
@@ -30,6 +28,7 @@ function savePlans(plans) {
   saveJSON("plans.json", plans);
 }
 
+// ---------- LLM ----------
 async function askLLM(prompt) {
   try {
     const res = await axios.post(
@@ -38,8 +37,14 @@ async function askLLM(prompt) {
         model: "deepseek-chat",
         response_format: { type: "json_object" },
         messages: [
-          { role: "system", content: "You are a mission-driven planner." },
-          { role: "user", content: prompt }
+          {
+            role: "system",
+            content: "You are a strategic planner that builds on prior knowledge."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
         ]
       },
       {
@@ -52,37 +57,35 @@ async function askLLM(prompt) {
 
     return JSON.parse(res.data.choices[0].message.content);
 
-  } catch {
+  } catch (err) {
+    console.error("[Planner] Error:", err.message);
     return {};
   }
 }
 
+// ---------- LOOP ----------
 async function plannerLoop() {
   try {
     console.log("[Planner] Running...");
 
     const plans = loadPlans();
-    const missions = loadMissions();
-    const mission = getActiveMission(missions);
 
-    if (!mission) {
-      console.log("[Planner] No active mission.");
-      return setTimeout(plannerLoop, 60000);
-    }
-
-    const relevant = await queryVector(mission.mission, 5);
+    // ---------- GET MEMORY ----------
+    const memory = searchKnowledge("AI");
 
     const decision = await askLLM(`
-Mission:
-${mission.mission}
+You are an AI planner.
 
-Relevant knowledge:
-${relevant.join("\n---\n")}
+Previous knowledge:
+${JSON.stringify(memory, null, 2)}
 
 Existing plans:
 ${JSON.stringify(plans, null, 2)}
 
-Create ONE goal that advances the mission.
+Create ONE high-value goal that:
+- builds on previous knowledge
+- fills gaps or expands insights
+- is NOT repetitive
 
 Return JSON:
 {
@@ -99,7 +102,6 @@ Return JSON:
 
       plans.push({
         goal: decision.goal,
-        mission: mission.mission,
         priority: decision.priority || 5,
         created_at: Date.now(),
         steps: plan.steps.map((s, i) => ({
@@ -115,7 +117,7 @@ Return JSON:
     }
 
   } catch (e) {
-    console.error("[Planner] Error:", e.message);
+    console.error("[Planner] Loop error:", e.message);
   }
 
   setTimeout(plannerLoop, 60000);
