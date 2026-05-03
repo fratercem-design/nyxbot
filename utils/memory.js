@@ -1,21 +1,21 @@
-const fs = require("fs");
+import fs from "fs";
 
 // ---------- LOAD ----------
-function loadKnowledge() {
+export function loadKnowledge() {
   try {
-    return JSON.parse(fs.readFileSync("knowledge.json"));
+    return JSON.parse(fs.readFileSync("knowledge.json", "utf-8"));
   } catch {
     return [];
   }
 }
 
 // ---------- SAVE ----------
-function saveKnowledge(data) {
+export function saveKnowledge(data) {
   fs.writeFileSync("knowledge.json", JSON.stringify(data, null, 2));
 }
 
 // ---------- ADD ----------
-function addKnowledge(entries, topic) {
+export function addKnowledge(entries, topic) {
   const knowledge = loadKnowledge();
 
   for (let item of entries) {
@@ -33,7 +33,7 @@ function addKnowledge(entries, topic) {
 }
 
 // ---------- SIMPLE SEARCH ----------
-function searchKnowledge(query) {
+export function searchKnowledge(query) {
   const knowledge = loadKnowledge();
 
   return knowledge
@@ -42,10 +42,3 @@ function searchKnowledge(query) {
     )
     .slice(-5);
 }
-
-module.exports = {
-  loadKnowledge,
-  saveKnowledge,
-  addKnowledge,
-  searchKnowledge
-};

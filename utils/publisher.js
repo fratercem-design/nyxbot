@@ -1,5 +1,10 @@
-const fs = require("fs");
-const path = require("path");
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+// recreate __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const OUTPUT_DIR = path.join(__dirname, "..", "outputs");
 const PUBLIC_DIR = path.join(__dirname, "..", "public");
@@ -40,7 +45,7 @@ function buildHTML(post) {
 }
 
 // ---------- PUBLISH ----------
-function publishLatest() {
+export function publishLatest() {
   try {
     const files = fs.readdirSync(OUTPUT_DIR);
 
@@ -49,22 +54,18 @@ function publishLatest() {
     const latest = files.sort().reverse()[0];
 
     const content = JSON.parse(
-      fs.readFileSync(path.join(OUTPUT_DIR, latest))
+      fs.readFileSync(path.join(OUTPUT_DIR, latest), "utf-8")
     );
 
     const html = buildHTML(content);
 
     const fileName = latest.replace(".json", ".html");
-
     const filePath = path.join(PUBLIC_DIR, fileName);
 
     fs.writeFileSync(filePath, html);
 
     console.log("[Publish] Created:", filePath);
-
   } catch (err) {
     console.error("[Publish] Error:", err.message);
   }
 }
-
-module.exports = { publishLatest };

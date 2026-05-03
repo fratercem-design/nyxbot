@@ -1,15 +1,15 @@
-const fs = require("fs");
+import fs from "fs";
 
-const { loadSkills } = require("./skills/index.js");
-const research = require("./skills/research.js");
-const { generateContent } = require("./utils/contentEngine.js");
-const { addKnowledge } = require("./utils/memory.js");
-const { publishLatest } = require("./utils/publisher.js");
+import { loadSkills } from "./skills/index.js";
+import research from "./skills/research.js";
+import { generateContent } from "./utils/contentEngine.js";
+import { addKnowledge } from "./utils/memory.js";
+import { publishLatest } from "./utils/publisher.js";
 
 // ---------- JSON ----------
 function loadJSON(file) {
   try {
-    return JSON.parse(fs.readFileSync(file));
+    return JSON.parse(fs.readFileSync(file, "utf-8"));
   } catch {
     return [];
   }
@@ -126,7 +126,7 @@ async function executorLoop() {
     console.log("[Executor] Completed:", step.task);
 
   } catch (e) {
-    console.error("[Executor] Error:", e.message);
+    console.error("[Executor] Error:", e);
   }
 
   setTimeout(executorLoop, 30000);

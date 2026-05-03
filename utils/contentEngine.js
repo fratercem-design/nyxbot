@@ -1,10 +1,15 @@
-const axios = require("axios");
-const fs = require("fs");
-const path = require("path");
+import axios from "axios";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
-const { searchKnowledge } = require("./memory.js");
+import { searchKnowledge } from "./memory.js";
 
 const API_KEY = process.env.DEEPSEEK_API_KEY;
+
+// recreate __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // ensure outputs folder
 const OUTPUT_DIR = path.join(__dirname, "..", "outputs");
@@ -44,9 +49,12 @@ Rules:
 }
 
 // ---------- GENERATE ----------
-async function generateContent(task) {
+export async function generateContent(task) {
   try {
-    const topic = task.replace("write", "").replace("content", "").trim();
+    const topic = task
+      .replace("write", "")
+      .replace("content", "")
+      .trim();
 
     const memory = searchKnowledge(topic);
 
@@ -58,19 +66,19 @@ async function generateContent(task) {
         messages: [
           {
             role: "system",
-            content: "You generate high-quality content from knowledge."
+            content: "You generate high-quality content from knowledge.",
           },
           {
             role: "user",
-            content: buildPrompt(topic, memory)
-          }
-        ]
+            content: buildPrompt(topic, memory),
+          },
+        ],
       },
       {
         headers: {
           Authorization: `Bearer ${API_KEY}`,
-          "Content-Type": "application/json"
-        }
+          "Content-Type": "application/json",
+        },
       }
     );
 
@@ -86,14 +94,11 @@ async function generateContent(task) {
     console.log("[Content] Saved:", filePath);
 
     return JSON.stringify(output);
-
   } catch (err) {
-    console.error("[Content] Error:", err.message);
+    console.error("[Content] Error:", err.response?.data || err.message);
 
     return JSON.stringify({
-      error: "Content generation failed"
+      error: "Content generation failed",
     });
   }
 }
-
-module.exports = { generateContent };

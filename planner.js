@@ -1,8 +1,8 @@
-const axios = require("axios");
-const fs = require("fs");
+import axios from "axios";
+import fs from "fs";
 
-const { searchKnowledge } = require("./utils/memory.js");
-const { createPlan } = require("./utils/planner.js");
+import { searchKnowledge } from "./utils/memory.js";
+import { createPlan } from "./utils/planner.js";
 
 // ---------- ENV CHECK ----------
 console.log("ENV CHECK:", {
@@ -18,7 +18,7 @@ const API_KEY = process.env.DEEPSEEK_API_KEY;
 // ---------- JSON ----------
 function loadJSON(file) {
   try {
-    return JSON.parse(fs.readFileSync(file));
+    return JSON.parse(fs.readFileSync(file, "utf-8"));
   } catch {
     return [];
   }
@@ -46,29 +46,34 @@ async function askLLM(prompt) {
         model: "deepseek-chat",
         response_format: { type: "json_object" },
         messages: [
-          { role: "system", content: "You are a strategic planner that builds on prior knowledge." },
-          { role: "user", content: prompt }
-        ]
+          {
+            role: "system",
+            content:
+              "You are a strategic planner that builds on prior knowledge.",
+          },
+          { role: "user", content: prompt },
+        ],
       },
       {
         headers: {
           Authorization: `Bearer ${API_KEY}`,
-          "Content-Type": "application/json"
-        }
+          "Content-Type": "application/json",
+        },
       }
     );
 
     return JSON.parse(res.data.choices[0].message.content);
-
   } catch (err) {
     const status = err.response?.status;
 
     if (status === 401) {
-      console.error("[Planner] AUTH ERROR: Invalid or missing DEEPSEEK_API_KEY");
+      console.error(
+        "[Planner] AUTH ERROR: Invalid or missing DEEPSEEK_API_KEY"
+      );
       process.exit(1);
     }
 
-    console.error("[Planner] Error:", err.message);
+    console.error("[Planner] Error:", err.response?.data || err.message);
     return {};
   }
 }
@@ -117,15 +122,14 @@ Return JSON:
           status: "pending",
           priority: 10 - i,
           run_at: Date.now(),
-          retries: 0
-        }))
+          retries: 0,
+        })),
       });
 
       savePlans(plans);
     }
-
   } catch (e) {
-    console.error("[Planner] Loop error:", e.message);
+    console.error("[Planner] Loop error:", e);
   }
 
   setTimeout(plannerLoop, 60000);

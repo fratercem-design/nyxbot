@@ -1,6 +1,6 @@
-const axios = require("axios");
-const cheerio = require("cheerio");
-const { summarize } = require("../utils/summarizer.js");
+import axios from "axios";
+import cheerio from "cheerio";
+import { summarize } from "../utils/summarizer.js";
 
 // extract clean text
 function extractText(html) {
@@ -34,7 +34,7 @@ async function search(query) {
 }
 
 // main
-async function research(task) {
+export default async function research(task) {
   try {
     const query = task.replace("research", "").trim();
 
@@ -69,5 +69,3 @@ async function research(task) {
     return JSON.stringify([]);
   }
 }
-
-module.exports = research;

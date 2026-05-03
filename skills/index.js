@@ -1,9 +1,13 @@
-const fs = require("fs");
-const path = require("path");
+import fs from "fs";
+import path from "path";
+import { fileURLToPath, pathToFileURL } from "url";
 
-function loadSkills() {
-  const dir = path.join(__dirname);
+// recreate __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
+export async function loadSkills() {
+  const dir = __dirname;
   const files = fs.readdirSync(dir);
 
   let skills = {};
@@ -11,11 +15,13 @@ function loadSkills() {
   for (let file of files) {
     if (file !== "index.js" && file.endsWith(".js")) {
       const name = file.replace(".js", "");
-      skills[name] = require(`./${file}`);
+
+      const modulePath = pathToFileURL(path.join(dir, file)).href;
+      const mod = await import(modulePath);
+
+      skills[name] = mod.default || mod;
     }
   }
 
   return skills;
 }
-
-module.exports = { loadSkills };
