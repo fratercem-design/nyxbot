@@ -2,6 +2,7 @@ const fs = require("fs");
 
 const { loadSkills } = require("./skills/index.js");
 const research = require("./skills/research.js");
+const { generateContent } = require("./utils/contentEngine.js");
 const { addKnowledge } = require("./utils/memory.js");
 
 // ---------- JSON ----------
@@ -30,21 +31,33 @@ function savePlans(plans) {
 async function runSkill(task) {
   const skills = loadSkills();
 
-  // research override
-  if (task.toLowerCase().includes("research")) {
+  const lower = task.toLowerCase();
+
+  // ---------- CONTENT ----------
+  if (
+    lower.includes("write") ||
+    lower.includes("content") ||
+    lower.includes("post")
+  ) {
+    console.log("[Executor] Generating content...");
+    return await generateContent(task);
+  }
+
+  // ---------- RESEARCH ----------
+  if (lower.includes("research")) {
     return await research(task);
   }
 
-  // try matching skill
+  // ---------- SKILLS ----------
   for (let name in skills) {
-    if (task.toLowerCase().includes(name)) {
+    if (lower.includes(name)) {
       console.log("[Executor] Using skill:", name);
       return await skills[name](task);
     }
   }
 
-  console.log("[Executor] No skill matched. Using basic.");
-  return await skills["basic"](task);
+  console.log("[Executor] No skill matched.");
+  return JSON.stringify({ message: "No action taken" });
 }
 
 // ---------- PICK NEXT STEP ----------
