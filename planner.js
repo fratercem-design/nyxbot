@@ -1,12 +1,17 @@
-console.log("ENV CHECK:", {
-  OPENAI_API_KEY: process.env.OPENAI_API_KEY ? "loaded" : "missing",
-  OTHER_API_KEY: process.env.OTHER_API_KEY ? "loaded" : "missing"
-});
 const axios = require("axios");
 const fs = require("fs");
 
 const { searchKnowledge } = require("./utils/memory.js");
 const { createPlan } = require("./utils/planner.js");
+
+// ---------- ENV CHECK ----------
+console.log("ENV CHECK:", {
+  DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY ? "loaded" : "missing",
+});
+
+if (!process.env.DEEPSEEK_API_KEY) {
+  throw new Error("DEEPSEEK_API_KEY is missing in runtime");
+}
 
 const API_KEY = process.env.DEEPSEEK_API_KEY;
 
@@ -62,6 +67,13 @@ async function askLLM(prompt) {
     return JSON.parse(res.data.choices[0].message.content);
 
   } catch (err) {
+    const status = err.response?.status;
+
+    if (status === 401) {
+      console.error("[Planner] AUTH ERROR: Invalid or missing DEEPSEEK_API_KEY");
+      process.exit(1); // stop infinite loop
+    }
+
     console.error("[Planner] Error:", err.message);
     return {};
   }
