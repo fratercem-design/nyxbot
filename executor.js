@@ -44,19 +44,6 @@ function saveKnowledge(data) {
 }
 
 // ---------- SKILL EXECUTION ----------
-async function runSkill(task) {
-  const skills = loadSkills();
-
-  for (let name in skills) {
-    if (task.toLowerCase().includes(name)) {
-      try {
-        console.log("[Executor] Using skill:", name);
-        return await skills[name](task);
-      } catch (err) {
-        console.log("[Executor] Skill failed. Regenerating:", name);
-        await generateSkill(task);
-      }
-    }
   }
 
   if (task.toLowerCase().includes("research")) {
