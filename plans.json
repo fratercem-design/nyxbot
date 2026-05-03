@@ -1,1 +1,11 @@
-[]
+[
+  {
+    "goal": "test skills",
+    "steps": [
+      {
+        "task": "basic test task",
+        "status": "pending"
+      }
+    ]
+  }
+]
