@@ -206,13 +206,23 @@ async function runSkill(task) {
   return "No skill matched.";
 }
 
-  } catch (e) {
-    console.error("Loop error:", e.message);
-  }
+const prompt = `
+You are an autonomous AI agent.
 
-  // Run again in 30 seconds
-  setTimeout(loop, 30000);
+If a task requires understanding, analysis, or learning,
+create a task that includes the word "research".
+
+Focus on:
+- extracting insights
+- learning useful knowledge
+- producing value
+
+Current tasks:
+${JSON.stringify(tasks, null, 2)}
+
+Respond ONLY in JSON:
+{
+  "action": "create" | "complete" | "none",
+  "task": "task description"
 }
-
-// Start the autonomous loop
-loop();
+`;
