@@ -1,3 +1,4 @@
+const { generateContent } = require("./utils/contentEngine.js");
 const fs = require("fs");
 
 const { loadSkills } = require("./skills/index.js");
