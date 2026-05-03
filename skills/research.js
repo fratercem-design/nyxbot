@@ -3,7 +3,7 @@ const axios = require("axios");
 const FIRECRAWL_KEY = process.env.FIRECRAWL_API_KEY;
 const DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY;
 
-// ---- Summarize scraped content ----
+// ---------- SUMMARIZE ----------
 async function summarize(text) {
   try {
     const res = await axios.post(
@@ -14,26 +14,19 @@ async function summarize(text) {
         messages: [
           {
             role: "system",
-            content: "You ONLY return valid JSON. No explanations. No extra text."
+            content: "You ONLY return valid JSON. No explanations."
           },
           {
             role: "user",
             content: `
 You are analyzing scraped web content.
 
-Extract ONLY useful information.
-
-Return JSON in this format:
+Return JSON:
 {
   "insights": ["..."],
   "facts": ["..."],
   "actions": ["..."]
 }
-
-Rules:
-- No fluff
-- No repetition
-- Be concise and specific
 
 Content:
 ${text.slice(0, 4000)}
@@ -61,10 +54,9 @@ ${text.slice(0, 4000)}
   }
 }
 
-// ---- Main research function ----
+// ---------- RESEARCH ----------
 async function research(query) {
   try {
-    // Step 1: Search
     const searchRes = await axios.post(
       "https://api.firecrawl.dev/v1/search",
       {
@@ -81,15 +73,12 @@ async function research(query) {
 
     const results = searchRes.data.data;
 
-    let finalOutput = [];
+    let output = [];
 
     for (let r of results) {
-      // Step 2: Scrape page content
       const scrapeRes = await axios.post(
         "https://api.firecrawl.dev/v1/scrape",
-        {
-          url: r.url
-        },
+        { url: r.url },
         {
           headers: {
             Authorization: `Bearer ${FIRECRAWL_KEY}`,
@@ -100,28 +89,23 @@ async function research(query) {
 
       const content = scrapeRes.data.data?.markdown || "";
 
-      // Step 3: Summarize content
       const summaryRaw = await summarize(content);
 
       let summary;
       try {
         summary = JSON.parse(summaryRaw);
       } catch {
-        summary = {
-          insights: [],
-          facts: [],
-          actions: []
-        };
+        summary = { insights: [], facts: [], actions: [] };
       }
 
-      finalOutput.push({
+      output.push({
         title: r.title,
         url: r.url,
         summary: summary
       });
     }
 
-    return JSON.stringify(finalOutput, null, 2);
+    return JSON.stringify(output, null, 2);
 
   } catch (err) {
     console.error("RESEARCH ERROR:", err.response?.data || err.message);
