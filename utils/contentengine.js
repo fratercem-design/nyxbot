@@ -87,12 +87,8 @@ async function generateContent(task) {
 
     const output = JSON.parse(res.data.choices[0].message.content);
 
-    // ---------- SAFE FILE NAME ----------
     const fileName =
-      task
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, "_")
-        .slice(0, 40) + ".json";
+      task.toLowerCase().replace(/[^a-z0-9]/g, "_").slice(0, 40) + ".json";
 
     const filePath = path.join(OUTPUT_DIR, fileName);
 
