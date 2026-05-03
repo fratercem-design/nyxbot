@@ -50,7 +50,7 @@ async function research(task) {
 
         const text = extractText(res.data);
 
-        const summary = await summarize(text);
+        const summary = await summarize(text, task);
 
         results.push({
           url,
