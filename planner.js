@@ -3,6 +3,10 @@ const fs = require("fs");
 
 const { queryVector } = require("./utils/vector.js");
 const { createPlan } = require("./utils/planner.js");
+const {
+  loadMissions,
+  getActiveMission
+} = require("./utils/missions.js");
 
 const API_KEY = process.env.DEEPSEEK_API_KEY;
 
@@ -34,7 +38,7 @@ async function askLLM(prompt) {
         model: "deepseek-chat",
         response_format: { type: "json_object" },
         messages: [
-          { role: "system", content: "You are a strategic planner." },
+          { role: "system", content: "You are a mission-driven planner." },
           { role: "user", content: prompt }
         ]
       },
@@ -48,8 +52,7 @@ async function askLLM(prompt) {
 
     return JSON.parse(res.data.choices[0].message.content);
 
-  } catch (e) {
-    console.error("Planner error:", e.message);
+  } catch {
     return {};
   }
 }
@@ -59,17 +62,27 @@ async function plannerLoop() {
     console.log("[Planner] Running...");
 
     const plans = loadPlans();
+    const missions = loadMissions();
+    const mission = getActiveMission(missions);
 
-    const relevant = await queryVector("strategy planning goals", 5);
+    if (!mission) {
+      console.log("[Planner] No active mission.");
+      return setTimeout(plannerLoop, 60000);
+    }
+
+    const relevant = await queryVector(mission.mission, 5);
 
     const decision = await askLLM(`
+Mission:
+${mission.mission}
+
 Relevant knowledge:
 ${relevant.join("\n---\n")}
 
 Existing plans:
 ${JSON.stringify(plans, null, 2)}
 
-Create ONE new high-value goal.
+Create ONE goal that advances the mission.
 
 Return JSON:
 {
@@ -86,12 +99,13 @@ Return JSON:
 
       plans.push({
         goal: decision.goal,
+        mission: mission.mission,
         priority: decision.priority || 5,
         created_at: Date.now(),
         steps: plan.steps.map((s, i) => ({
           ...s,
           status: "pending",
-          priority: 10 - i, // earlier steps higher
+          priority: 10 - i,
           run_at: Date.now(),
           retries: 0
         }))
@@ -101,7 +115,7 @@ Return JSON:
     }
 
   } catch (e) {
-    console.error("[Planner] Loop error:", e.message);
+    console.error("[Planner] Error:", e.message);
   }
 
   setTimeout(plannerLoop, 60000);
