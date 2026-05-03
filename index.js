@@ -1,16 +1,16 @@
-const { createPlan } = require("./utils/planner.js");
 const axios = require("axios");
 const fs = require("fs");
 
 const { research } = require("./skills/research.js");
 const { cleanAndRank } = require("./utils/knowledge.js");
 const { addToVector, queryVector } = require("./utils/vector.js");
+const { createPlan } = require("./utils/planner.js");
 
 const API_KEY = process.env.DEEPSEEK_API_KEY;
 
 console.log("Starting agent...");
 
-// ---------- UTILS ----------
+// ---------- JSON UTILS ----------
 function loadJSON(file) {
   try {
     return JSON.parse(fs.readFileSync(file));
@@ -40,6 +40,15 @@ function loadKnowledge() {
 
 function saveKnowledge(data) {
   saveJSON("knowledge.json", data);
+}
+
+// ---------- PLAN HELPERS ----------
+function loadPlans() {
+  return loadJSON("plans.json");
+}
+
+function savePlans(plans) {
+  saveJSON("plans.json", plans);
 }
 
 // ---------- LLM ----------
@@ -85,37 +94,38 @@ async function loop() {
     console.log("Running agent loop...");
 
     const tasks = loadTasks();
+    const plans = loadPlans();
 
-    // -------- VECTOR QUERY --------
+    // ---------- VECTOR MEMORY ----------
     const queryText = tasks.map(t => t.task).join(" ");
     const relevantMemory = await queryVector(
       queryText || "general research",
       5
     );
 
+    // ---------- PROMPT ----------
     const prompt = `
 You are an autonomous AI agent.
 
 Relevant knowledge:
 ${relevantMemory.join("\n---\n")}
 
+Existing plans:
+${JSON.stringify(plans, null, 2)}
+
 Current tasks:
 ${JSON.stringify(tasks, null, 2)}
 
-Goals:
-- Build knowledge
-- Avoid repetition
-- Expand insights
-
 Rules:
-- Create "research" tasks for learning
-- Use memory to guide decisions
-- Do not duplicate tasks
+- Create ONLY high-level goals
+- Do not create step-by-step tasks
+- Plans will handle execution
+- Avoid duplicates
 
 Respond ONLY in JSON:
 {
-  "action": "create" | "complete" | "none",
-  "task": "task description"
+  "action": "create" | "none",
+  "task": "high-level goal"
 }
 `;
 
@@ -131,30 +141,44 @@ Respond ONLY in JSON:
       return setTimeout(loop, 30000);
     }
 
-    // -------- DECISION --------
+    // ---------- CREATE PLAN ----------
     if (decision.action === "create") {
-      tasks.push({ task: decision.task, status: "pending" });
+      console.log("Creating plan for:", decision.task);
+
+      const plan = await createPlan(decision.task);
+
+      plans.push({
+        goal: decision.task,
+        steps: plan.steps.map(s => ({
+          ...s,
+          status: "pending"
+        }))
+      });
+
+      savePlans(plans);
     }
 
-    if (decision.action === "complete") {
-      const t = tasks.find(t => t.task === decision.task);
-      if (t) t.status = "done";
-    }
+    // ---------- EXECUTE PLAN ----------
+    for (let plan of plans) {
+      const nextStep = plan.steps.find(s => s.status === "pending");
 
-    // -------- EXECUTE --------
-    for (let t of tasks) {
-      if (t.status === "pending") {
-        const result = await runSkill(t.task);
+      if (nextStep) {
+        console.log("Executing step:", nextStep.task);
 
-        console.log("Task result:", result);
+        const result = await runSkill(nextStep.task);
 
+        console.log("Step result:", result);
+
+        nextStep.status = "done";
+
+        // ---------- STORE KNOWLEDGE ----------
         try {
           const parsed = JSON.parse(result);
           const knowledge = loadKnowledge();
 
           for (let item of parsed) {
             const entry = {
-              topic: t.task,
+              topic: nextStep.task,
               source: item.url,
               insights: item.summary.insights,
               facts: item.summary.facts,
@@ -167,18 +191,17 @@ Respond ONLY in JSON:
             await addToVector(entry);
           }
 
-          const cleaned = cleanAndRank(knowledge);
-          saveKnowledge(cleaned);
+          saveKnowledge(cleanAndRank(knowledge));
 
         } catch {
-          console.log("Could not store knowledge.");
+          console.log("Knowledge store failed.");
         }
 
-        t.status = "done";
+        break; // run one step per loop
       }
     }
 
-    saveTasks(tasks);
+    savePlans(plans);
 
   } catch (e) {
     console.error("Loop error:", e.message);
