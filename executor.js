@@ -1,4 +1,3 @@
-const { generateContent } = require("./utils/contentEngine.js");
 const fs = require("fs");
 
 const { loadSkills } = require("./skills/index.js");
@@ -7,13 +6,14 @@ const { research } = require("./skills/research.js");
 const { cleanAndRank } = require("./utils/knowledge.js");
 const { addToVector } = require("./utils/vector.js");
 
-const {
-  loadMissions,
-  saveMissions,
-  updateMissionProgress
-} = require("./utils/missions.js");
+let generateContent;
+try {
+  generateContent = require("./utils/contentEngine.js").generateContent;
+} catch {
+  console.log("[Executor] Content engine not available");
+}
 
-// ---------- JSON UTILS ----------
+// ---------- JSON ----------
 function loadJSON(file) {
   try {
     return JSON.parse(fs.readFileSync(file));
@@ -44,21 +44,44 @@ function saveKnowledge(data) {
 }
 
 // ---------- SKILL EXECUTION ----------
+async function runSkill(task) {
+  const skills = loadSkills();
+
+  for (let name in skills) {
+    if (task.toLowerCase().includes(name)) {
+      try {
+        console.log("[Executor] Using skill:", name);
+        return await skills[name](task);
+      } catch {
+        console.log("[Executor] Skill failed. Regenerating:", name);
+        await generateSkill(task);
+      }
+    }
   }
 
+  // CONTENT
+  if (
+    generateContent &&
+    (task.includes("content") ||
+      task.includes("post") ||
+      task.includes("write"))
+  ) {
+    console.log("[Executor] Generating content...");
+    return await generateContent(task);
+  }
+
+  // RESEARCH
   if (task.toLowerCase().includes("research")) {
     return await research(task);
   }
 
-  console.log("[Executor] No skill found. Generating...");
+  console.log("[Executor] Generating new skill...");
   await generateSkill(task);
 
-  return JSON.stringify({
-    message: "Skill generated"
-  });
+  return JSON.stringify({ message: "Skill generated" });
 }
 
-// ---------- PRIORITY SCHEDULER ----------
+// ---------- PICK NEXT STEP ----------
 function getNextStep(plans) {
   const now = Date.now();
 
@@ -66,16 +89,12 @@ function getNextStep(plans) {
 
   for (let plan of plans) {
     for (let step of plan.steps) {
-      if (
-        step.status === "pending" &&
-        step.run_at <= now
-      ) {
+      if (step.status === "pending" && step.run_at <= now) {
         candidates.push({ plan, step });
       }
     }
   }
 
-  // sort by step priority DESC
   candidates.sort((a, b) => b.step.priority - a.step.priority);
 
   return candidates[0];
@@ -87,11 +106,10 @@ async function executorLoop() {
     console.log("[Executor] Running...");
 
     const plans = loadPlans();
-
     const next = getNextStep(plans);
 
     if (!next) {
-      console.log("[Executor] No ready tasks.");
+      console.log("[Executor] No tasks ready.");
       return setTimeout(executorLoop, 30000);
     }
 
@@ -108,7 +126,7 @@ async function executorLoop() {
 
       step.status = "done";
 
-      // ---------- STORE KNOWLEDGE ----------
+      // STORE KNOWLEDGE
       try {
         const parsed = JSON.parse(result);
         const knowledge = loadKnowledge();
@@ -117,14 +135,13 @@ async function executorLoop() {
           const entry = {
             topic: step.task,
             source: item.url,
-            insights: item.summary.insights,
-            facts: item.summary.facts,
-            actions: item.summary.actions,
+            insights: item.summary?.insights || [],
+            facts: item.summary?.facts || [],
+            actions: item.summary?.actions || [],
             timestamp: Date.now()
           };
 
           knowledge.push(entry);
-
           await addToVector(entry);
         }
 
@@ -134,46 +151,16 @@ async function executorLoop() {
         console.log("[Executor] Knowledge parse failed.");
       }
 
-      // ---------- MISSION PROGRESS ----------
-      try {
-        const missions = loadMissions();
-
-        const mission = missions.find(
-          m => m.mission === plan.mission
-        );
-
-        if (mission) {
-          updateMissionProgress(mission, 5);
-          saveMissions(missions);
-
-          console.log(
-            "[Executor] Mission progress:",
-            mission.progress
-          );
-        }
-
-      } catch {
-        console.log("[Executor] Mission update failed.");
-      }
-
     } catch (err) {
       console.log("[Executor] Step failed:", err.message);
 
-      step.retries += 1;
+      step.retries = (step.retries || 0) + 1;
 
       if (step.retries >= 3) {
         step.status = "failed";
-        console.log("[Executor] Step marked as failed.");
       } else {
         step.status = "pending";
-
-        // exponential backoff
         step.run_at = Date.now() + 60000 * step.retries;
-
-        console.log(
-          "[Executor] Retrying later. Attempt:",
-          step.retries
-        );
       }
     }
 
