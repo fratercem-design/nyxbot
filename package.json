@@ -2,9 +2,12 @@
   "name": "psyche-agent",
   "version": "1.0.0",
   "main": "index.js",
+  "scripts": {
+    "planner": "node planner.js",
+    "executor": "node executor.js",
+    "start": "node planner.js & node executor.js"
+  },
   "dependencies": {
-    "axios": "^1.6.0",
-    "chromadb": "^1.8.1",
-    "uuid": "^9.0.1"
+    "axios": "^1.6.0"
   }
 }
