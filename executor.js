@@ -1,6 +1,8 @@
 const fs = require("fs");
 
 const { loadSkills } = require("./skills/index.js");
+const research = require("./skills/research.js");
+const { addKnowledge } = require("./utils/memory.js");
 
 // ---------- JSON ----------
 function loadJSON(file) {
@@ -28,6 +30,12 @@ function savePlans(plans) {
 async function runSkill(task) {
   const skills = loadSkills();
 
+  // research override
+  if (task.toLowerCase().includes("research")) {
+    return await research(task);
+  }
+
+  // try matching skill
   for (let name in skills) {
     if (task.toLowerCase().includes(name)) {
       console.log("[Executor] Using skill:", name);
@@ -68,16 +76,32 @@ async function executorLoop() {
 
     console.log("[Executor] Executing:", step.task);
 
+    // mark running
     step.status = "running";
     savePlans(plans);
 
-    // RUN SKILL
+    // run task
     const result = await runSkill(step.task);
 
     console.log("[Executor] Result:", result);
 
+    // ---------- STORE MEMORY ----------
+    try {
+      const parsed = JSON.parse(result);
+
+      if (Array.isArray(parsed)) {
+        addKnowledge(parsed, step.task);
+        console.log("[Memory] Stored knowledge");
+      }
+    } catch {
+      console.log("[Memory] Skipped (not JSON)");
+    }
+
+    // mark done
     step.status = "done";
     savePlans(plans);
+
+    console.log("[Executor] Completed:", step.task);
 
   } catch (e) {
     console.error("[Executor] Error:", e.message);
