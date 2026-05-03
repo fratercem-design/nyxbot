@@ -1,13 +1,11 @@
-function normalizeText(arr) {
+\function normalizeText(arr) {
   return (arr || []).join(" ").toLowerCase().slice(0, 200);
 }
 
-// Simple similarity check
 function isSimilar(a, b) {
   return normalizeText(a).includes(normalizeText(b).slice(0, 50));
 }
 
-// Score knowledge quality
 function scoreItem(item) {
   let score = 0;
 
@@ -17,6 +15,13 @@ function scoreItem(item) {
 
   if (item.source && item.source.includes("github")) score += 3;
   if (item.source && item.source.includes("blog")) score += 2;
+
+  // freshness boost
+  if (item.timestamp) {
+    const age = Date.now() - item.timestamp;
+    const freshness = Math.max(0, 5 - age / (1000 * 60 * 60));
+    score += freshness;
+  }
 
   return score;
 }
@@ -34,7 +39,6 @@ function cleanAndRank(knowledge) {
     }
   }
 
-  // Score and sort
   unique = unique.map(item => ({
     ...item,
     score: scoreItem(item)
@@ -42,8 +46,7 @@ function cleanAndRank(knowledge) {
 
   unique.sort((a, b) => b.score - a.score);
 
-  // Keep top 20
-  return unique.slice(0, 20);
+  return unique.slice(0, 50);
 }
 
 module.exports = { cleanAndRank };
