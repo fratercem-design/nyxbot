@@ -1,6 +1,22 @@
+<<<<<<< HEAD
 {
   "dependencies": {
     "cheerio": "^1.2.0",
     "express": "^5.2.1"
   }
 }
+=======
+{
+  "name": "psyche-agent",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "planner": "node planner.js",
+    "executor": "node executor.js",
+    "start": "node planner.js & node executor.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  }
+}
+>>>>>>> 3c49c03d24cdaef5195dd315db348120c3154103
