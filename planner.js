@@ -46,14 +46,8 @@ async function askLLM(prompt) {
         model: "deepseek-chat",
         response_format: { type: "json_object" },
         messages: [
-          {
-            role: "system",
-            content: "You are a strategic planner that builds on prior knowledge."
-          },
-          {
-            role: "user",
-            content: prompt
-          }
+          { role: "system", content: "You are a strategic planner that builds on prior knowledge." },
+          { role: "user", content: prompt }
         ]
       },
       {
@@ -71,7 +65,7 @@ async function askLLM(prompt) {
 
     if (status === 401) {
       console.error("[Planner] AUTH ERROR: Invalid or missing DEEPSEEK_API_KEY");
-      process.exit(1); // stop infinite loop
+      process.exit(1);
     }
 
     console.error("[Planner] Error:", err.message);
@@ -85,8 +79,6 @@ async function plannerLoop() {
     console.log("[Planner] Running...");
 
     const plans = loadPlans();
-
-    // ---------- GET MEMORY ----------
     const memory = searchKnowledge("AI");
 
     const decision = await askLLM(`
