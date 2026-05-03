@@ -4,7 +4,8 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "start": "concurrently \"node server.js\" \"node planner.js\" \"node executor.js\"",
+    "start": "node server.js",
+    "dev": "concurrently \"node server.js\" \"node planner.js\" \"node executor.js\"",
     "planner": "node planner.js",
     "executor": "node executor.js"
   },

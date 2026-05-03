@@ -1,8 +1,8 @@
-const axios = require("axios");
+import axios from "axios";
 
 const API_KEY = process.env.DEEPSEEK_API_KEY;
 
-async function createPlan(goal) {
+export async function createPlan(goal) {
   try {
     const res = await axios.post(
       "https://api.deepseek.com/v1/chat/completions",
@@ -47,5 +47,3 @@ Return JSON:
     return { steps: [] };
   }
 }
-
-module.exports = { createPlan };
