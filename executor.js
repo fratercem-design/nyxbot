@@ -4,6 +4,7 @@ const { loadSkills } = require("./skills/index.js");
 const research = require("./skills/research.js");
 const { generateContent } = require("./utils/contentEngine.js");
 const { addKnowledge } = require("./utils/memory.js");
+const { publishLatest } = require("./utils/publisher.js");
 
 // ---------- JSON ----------
 function loadJSON(file) {
@@ -30,7 +31,6 @@ function savePlans(plans) {
 // ---------- SKILL EXECUTION ----------
 async function runSkill(task) {
   const skills = loadSkills();
-
   const lower = task.toLowerCase();
 
   // ---------- CONTENT ----------
@@ -48,7 +48,7 @@ async function runSkill(task) {
     return await research(task);
   }
 
-  // ---------- SKILLS ----------
+  // ---------- CUSTOM SKILLS ----------
   for (let name in skills) {
     if (lower.includes(name)) {
       console.log("[Executor] Using skill:", name);
@@ -108,6 +108,15 @@ async function executorLoop() {
       }
     } catch {
       console.log("[Memory] Skipped (not JSON)");
+    }
+
+    // ---------- AUTO PUBLISH ----------
+    try {
+      if (step.task.toLowerCase().includes("write")) {
+        publishLatest();
+      }
+    } catch {
+      console.log("[Publish] Skipped");
     }
 
     // mark done
