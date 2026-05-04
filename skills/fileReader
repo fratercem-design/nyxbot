@@ -1,0 +1,8 @@
+import { summarize } from "../utils/summarizer.js";
+
+const summary = await summarize(content, task);
+
+return {
+  file: filePath,
+  summary
+};

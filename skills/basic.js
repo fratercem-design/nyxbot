@@ -1,7 +1,3 @@
-async function basic(task) {
-  return {
-    message: `Executed task: ${task}`
-  };
+export default async function basic(task) {
+  return `Processed: ${task}`;
 }
-
-module.exports = basic;

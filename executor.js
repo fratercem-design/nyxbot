@@ -133,3 +133,19 @@ async function executorLoop() {
 }
 
 executorLoop();
+import { classifyIntent } from "./utils/router.js";
+
+async function runTask(task, skills) {
+  const intent = classifyIntent(task);
+
+  console.log("[Executor] Intent:", intent);
+
+  const skill = skills[intent] || skills.basic;
+
+  const result = await skill(task);
+
+  return {
+    intent,
+    result
+  };
+}

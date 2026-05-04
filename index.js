@@ -1,245 +1,123 @@
-const axios = require("axios");
-const fs = require("fs");
+import fs from "fs";
+import path from "path";
+import { fileURLToPath, pathToFileURL } from "url";
 
-const { research } = require("./skills/research.js");
-const { loadSkills } = require("./skills/index.js");
-const { generateSkill } = require("./utils/skillGenerator.js");
-const { cleanAndRank } = require("./utils/knowledge.js");
-const { addToVector, queryVector } = require("./utils/vector.js");
-const { createPlan } = require("./utils/planner.js");
+// recreate __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-const API_KEY = process.env.DEEPSEEK_API_KEY;
+// --------------------
+// LOAD ALL SKILLS
+// --------------------
+export async function loadSkills() {
+  const files = fs.readdirSync(__dirname);
 
-console.log("Starting agent...");
+  const skills = {};
 
-// ---------- JSON UTILS ----------
-function loadJSON(file) {
-  try {
-    return JSON.parse(fs.readFileSync(file));
-  } catch {
-    return [];
-  }
-}
+  for (const file of files) {
+    if (file === "index.js" || !file.endsWith(".js")) continue;
 
-function saveJSON(file, data) {
-  fs.writeFileSync(file, JSON.stringify(data, null, 2));
-}
+    const name = file.replace(".js", "");
+    const modulePath = pathToFileURL(path.join(__dirname, file)).href;
 
-// ---------- DATA ----------
-let memory = loadJSON("memory.json");
-
-function loadTasks() {
-  return loadJSON("tasks.json");
-}
-
-function saveTasks(tasks) {
-  saveJSON("tasks.json", tasks);
-}
-
-function loadKnowledge() {
-  return loadJSON("knowledge.json");
-}
-
-function saveKnowledge(data) {
-  saveJSON("knowledge.json", data);
-}
-
-function loadPlans() {
-  return loadJSON("plans.json");
-}
-
-function savePlans(plans) {
-  saveJSON("plans.json", plans);
-}
-
-// ---------- LLM ----------
-async function askDeepSeek(prompt) {
-  try {
-    const res = await axios.post(
-      "https://api.deepseek.com/v1/chat/completions",
-      {
-        model: "deepseek-chat",
-        messages: [
-          { role: "system", content: "You are Psyche's AI operator." },
-          ...memory.slice(-10),
-          { role: "user", content: prompt }
-        ]
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${API_KEY}`,
-          "Content-Type": "application/json"
-        }
-      }
-    );
-
-    return res.data.choices[0].message.content;
-
-  } catch (err) {
-    console.error("API ERROR:", err.response?.data || err.message);
-    return "{}";
-  }
-}
-
-// ---------- SKILL EXECUTION ----------
-async function runSkill(task) {
-  const skills = loadSkills();
-
-  for (let name in skills) {
-    if (task.toLowerCase().includes(name)) {
-      try {
-        console.log("Using skill:", name);
-        return await skills[name](task);
-      } catch (err) {
-        console.log("Skill failed. Regenerating:", name);
-        await generateSkill(task);
-      }
-    }
-  }
-
-  // fallback to research
-  if (task.toLowerCase().includes("research")) {
-    return await research(task);
-  }
-
-  console.log("No skill found. Generating...");
-  await generateSkill(task);
-
-  return JSON.stringify({
-    message: "Skill generated"
-  });
-}
-
-// ---------- MAIN LOOP ----------
-async function loop() {
-  try {
-    console.log("Running agent loop...");
-
-    const tasks = loadTasks();
-    const plans = loadPlans();
-
-    // ---------- VECTOR MEMORY ----------
-    const queryText = tasks.map(t => t.task).join(" ");
-    const relevantMemory = await queryVector(
-      queryText || "general research",
-      5
-    );
-
-    // ---------- PROMPT ----------
-    const prompt = `
-You are an autonomous AI agent.
-
-Relevant knowledge:
-${relevantMemory.join("\n---\n")}
-
-Existing plans:
-${JSON.stringify(plans, null, 2)}
-
-Current tasks:
-${JSON.stringify(tasks, null, 2)}
-
-Rules:
-- Create ONLY high-level goals
-- Do not create step-by-step tasks
-- Plans will handle execution
-- Avoid duplicate goals
-- If something is reusable, it should become a skill
-
-Respond ONLY in JSON:
-{
-  "action": "create" | "none",
-  "task": "high-level goal"
-}
-`;
-
-    const decisionRaw = await askDeepSeek(prompt);
-
-    console.log("Decision raw:", decisionRaw);
-
-    let decision;
     try {
-      decision = JSON.parse(decisionRaw);
-    } catch {
-      console.log("Invalid JSON decision.");
-      return setTimeout(loop, 30000);
+      const mod = await import(modulePath);
+      skills[name] = mod.default;
+      console.log(`[Skills] Loaded: ${name}`);
+    } catch (err) {
+      console.error(`[Skills] Failed to load ${name}:`, err.message);
     }
-
-    // ---------- CREATE PLAN ----------
-    if (decision.action === "create") {
-      console.log("Creating plan for:", decision.task);
-
-      const plan = await createPlan(decision.task);
-
-      plans.push({
-        goal: decision.task,
-        steps: plan.steps.map(s => ({
-          ...s,
-          status: "pending"
-        }))
-      });
-
-      savePlans(plans);
-    }
-
-    // ---------- EXECUTE PLAN ----------
-    for (let plan of plans) {
-      const nextStep = plan.steps.find(s => s.status === "pending");
-
-      if (nextStep) {
-        console.log("Executing step:", nextStep.task);
-
-        const result = await runSkill(nextStep.task);
-
-        console.log("Step result:", result);
-
-        nextStep.status = "done";
-
-        // ---------- STORE KNOWLEDGE ----------
-        try {
-          const parsed = JSON.parse(result);
-          const knowledge = loadKnowledge();
-
-          for (let item of parsed) {
-            const entry = {
-              topic: nextStep.task,
-              source: item.url,
-              insights: item.summary.insights,
-              facts: item.summary.facts,
-              actions: item.summary.actions,
-              timestamp: Date.now()
-            };
-
-            knowledge.push(entry);
-
-            await addToVector(entry);
-          }
-
-          saveKnowledge(cleanAndRank(knowledge));
-
-        } catch {
-          console.log("Knowledge store failed.");
-        }
-
-        break; // one step per loop
-      }
-    }
-
-    savePlans(plans);
-
-  } catch (e) {
-    console.error("Loop error:", e.message);
   }
 
-  setTimeout(loop, 30000);
+  return skills;
 }
 
-// ---------- SAFETY ----------
-process.on("uncaughtException", err => {
-  console.error("UNCAUGHT:", err);
-});
+// --------------------
+// MATCH SKILL (ROUTER)
+// --------------------
+export function matchSkill(task, skills) {
+  if (!task || typeof task !== "string") return null;
 
-process.on("unhandledRejection", err => {
-  console.error("UNHANDLED:", err);
-});
+  const t = task.toLowerCase();
 
-loop();
+  // FILE HANDLING
+  if (
+    t.includes("read file") ||
+    t.includes("open file") ||
+    t.includes("load file")
+  ) {
+    return skills.fileReader || skills.basic;
+  }
+
+  // RESEARCH
+  if (
+    t.includes("research") ||
+    t.includes("search") ||
+    t.includes("find") ||
+    t.includes("look up")
+  ) {
+    return skills.research || skills.basic;
+  }
+
+  // ANALYSIS
+  if (
+    t.includes("analyze") ||
+    t.includes("compare") ||
+    t.includes("evaluate") ||
+    t.includes("assess")
+  ) {
+    return skills.analysis || skills.basic;
+  }
+
+  // WRITING / CONTENT
+  if (
+    t.includes("write") ||
+    t.includes("generate") ||
+    t.includes("draft") ||
+    t.includes("create content")
+  ) {
+    return skills.writer || skills.basic;
+  }
+
+  // PLANNING
+  if (
+    t.includes("plan") ||
+    t.includes("strategy") ||
+    t.includes("roadmap") ||
+    t.includes("steps")
+  ) {
+    return skills.planner || skills.basic;
+  }
+
+  // ORGANIZATION
+  if (
+    t.includes("organize") ||
+    t.includes("list") ||
+    t.includes("structure") ||
+    t.includes("break down")
+  ) {
+    return skills.organizer || skills.basic;
+  }
+
+  // LEARNING / SKILLS
+  if (
+    t.includes("learn") ||
+    t.includes("study") ||
+    t.includes("practice") ||
+    t.includes("skill")
+  ) {
+    return skills.learning || skills.basic;
+  }
+
+  // MEMORY
+  if (
+    t.includes("remember") ||
+    t.includes("store") ||
+    t.includes("save")
+  ) {
+    return skills.memory || skills.basic;
+  }
+
+  // DEFAULT FALLBACK
+  return skills.basic || null;
+}

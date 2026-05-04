@@ -1,0 +1,21 @@
+body {
+  background: black;
+  color: #00ffcc;
+  font-family: monospace;
+}
+
+#layout {
+  display: grid;
+  grid-template-columns: 200px 1fr 200px;
+}
+
+#messages {
+  height: 80vh;
+  overflow-y: auto;
+}
+
+input {
+  width: 100%;
+  background: black;
+  color: #00ffcc;
+}
