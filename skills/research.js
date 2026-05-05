@@ -4,19 +4,29 @@ import * as cheerio from "cheerio";
 export default async function research(task) {
   try {
     const query = task.replace("research", "").trim();
-    const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+
+    const url = `https://duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
 
     const res = await axios.get(url);
     const $ = cheerio.load(res.data);
 
     const results = [];
 
-    $(".result__a").each((i, el) => {
-      results.push($(el).text());
+    $("a.result__a").each((i, el) => {
+      const text = $(el).text().trim();
+      const link = $(el).attr("href");
+
+      if (text && link) {
+        results.push(`${text} - ${link}`);
+      }
     });
 
-    return results.slice(0, 3);
-  } catch {
-    return "Research failed";
+    if (results.length === 0) {
+      return `No results found for: ${query}`;
+    }
+
+    return results.slice(0, 3).join("\n");
+  } catch (err) {
+    return "Research failed: " + err.message;
   }
 }

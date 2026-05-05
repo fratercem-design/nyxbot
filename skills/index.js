@@ -15,8 +15,13 @@ export async function loadSkills() {
     const name = file.replace(".js", "");
     const modulePath = pathToFileURL(path.join(__dirname, file)).href;
 
-    const mod = await import(modulePath);
-    skills[name] = mod.default;
+    try {
+      const mod = await import(modulePath);
+      skills[name] = mod.default;
+      console.log(`[Skills] Loaded: ${name}`);
+    } catch (err) {
+      console.error(`[Skills] Failed: ${name}`, err.message);
+    }
   }
 
   return skills;
@@ -26,7 +31,7 @@ export function matchSkill(task, skills) {
   const t = task.toLowerCase();
 
   if (t.includes("file")) return skills.fileReader || skills.basic;
-  if (t.includes("research")) return skills.research || skills.basic;
+  if (t.includes("research") || t.includes("search")) return skills.research || skills.basic;
 
-  return skills.basic;
+  return skills.basic || null;
 }
