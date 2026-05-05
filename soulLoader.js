@@ -5,18 +5,16 @@ export function loadSoul() {
     const raw = fs.readFileSync("./souls/nyx/SOUL.md", "utf-8");
 
     return {
-      raw,
       personality: extract("personality", raw),
-      tone: extract("tone", raw),
       purpose: extract("purpose", raw)
     };
   } catch (err) {
-    console.error("[SOUL LOAD ERROR]", err.message);
+    console.error("[SOUL ERROR]", err.message);
     return null;
   }
 }
 
 function extract(field, text) {
   const match = text.match(new RegExp(`${field}: (.*)`));
-  return match ? match[1] : "";
+  return match ? match[1].trim() : "";
 }

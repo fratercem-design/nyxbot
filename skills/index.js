@@ -15,23 +15,23 @@ export async function loadSkills() {
     const name = file.replace(".js", "");
     const modulePath = pathToFileURL(path.join(__dirname, file)).href;
 
-    try {
-      const mod = await import(modulePath);
-      skills[name] = mod.default;
-      console.log(`[Skills] Loaded: ${name}`);
-    } catch (err) {
-      console.error(`[Skills] Failed: ${name}`, err.message);
-    }
+    const mod = await import(modulePath);
+    skills[name] = mod.default;
   }
 
   return skills;
 }
 
-export function matchSkill(task, skills) {
+export function matchSkill(task, skills, memory) {
   const t = task.toLowerCase();
 
-  if (t.includes("file")) return skills.fileReader || skills.basic;
-  if (t.includes("research") || t.includes("search")) return skills.research || skills.basic;
+  // 🔥 if goal active → prioritize research
+  if (memory.goals.some(g => g.status === "active")) {
+    return skills.research || skills.basic;
+  }
 
-  return skills.basic || null;
+  if (t.includes("research")) return skills.research;
+  if (t.includes("file")) return skills.fileReader;
+
+  return skills.basic;
 }

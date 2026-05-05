@@ -1,21 +1,36 @@
 body {
+  margin: 0;
   background: black;
   color: #00ffcc;
   font-family: monospace;
 }
 
+header {
+  padding: 10px;
+  border-bottom: 1px solid #00ffcc;
+}
+
 #layout {
   display: grid;
   grid-template-columns: 200px 1fr 200px;
+  height: calc(100vh - 40px);
 }
 
 #messages {
-  height: 80vh;
   overflow-y: auto;
+  height: 80vh;
+  padding: 10px;
 }
 
 input {
   width: 100%;
+  padding: 10px;
   background: black;
   color: #00ffcc;
+  border: none;
+  border-top: 1px solid #00ffcc;
+}
+
+.msg {
+  margin: 5px 0;
 }

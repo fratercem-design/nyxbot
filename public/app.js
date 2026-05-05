@@ -3,6 +3,7 @@ const messages = document.getElementById("messages");
 
 function add(text) {
   const div = document.createElement("div");
+  div.className = "msg";
   div.textContent = text;
   messages.appendChild(div);
 }
@@ -23,5 +24,5 @@ input.addEventListener("keydown", async (e) => {
 
   const data = await res.json();
 
-  add("Nyx: " + JSON.stringify(data.final));
+  add("Nyx: " + data.final);
 });

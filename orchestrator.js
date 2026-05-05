@@ -1,43 +1,63 @@
 import { matchSkill } from "./skills/index.js";
+import { getActiveGoal, updateGoal } from "./memory.js";
 
-export async function runAgent(task, skills, soul) {
+export async function runAgent(task, skills, soul, memory) {
   const steps = [];
-  let current = task;
 
-  for (let i = 0; i < 3; i++) {
-    const skill = matchSkill(current, skills);
-    if (!skill) break;
+  const activeGoal = getActiveGoal(memory);
 
-    const output = await skill(current);
+  let execution = "";
 
-    steps.push({
-      step: i + 1,
-      skill: skill.name || "unknown",
-      input: current,
-      output
-    });
+  // 🔥 if goal exists, run next step
+  if (activeGoal) {
+    const step = activeGoal.steps[activeGoal.currentStep];
 
-    if (typeof output === "string") {
-      current = output;
-    } else {
-      break;
+    execution = `Executing goal step: ${step}`;
+
+    // move forward
+    activeGoal.currentStep++;
+
+    if (activeGoal.currentStep >= activeGoal.steps.length) {
+      activeGoal.status = "completed";
+      execution += "\nGoal completed.";
     }
+
+    updateGoal(memory, activeGoal);
   }
 
-  const final = steps[steps.length - 1]?.output || "No result";
+  const skill = matchSkill(task, skills, memory);
+
+  if (!skill) {
+    return { final: "No skill matched", steps: [] };
+  }
+
+  const output = await skill(task);
+
+  steps.push({
+    step: 1,
+    skill: skill.name || "unknown",
+    input: task,
+    output
+  });
 
   return {
-    final: applySoul(final, soul),
+    final: applyExecution(output, soul, execution, activeGoal),
     steps
   };
 }
 
-function applySoul(output, soul) {
-  if (!soul) return output;
+function applyExecution(output, soul, execution, goal) {
+  if (typeof output !== "string") return output;
 
-  if (typeof output !== "string") {
-    return output;
+  let goalInfo = "";
+
+  if (goal) {
+    goalInfo = `Active goal: ${goal.goal}`;
   }
 
-  return `[Nyx] ${output}`;
+  return `${output}
+→ ${soul?.personality || ""}
+→ purpose: ${soul?.purpose || ""}
+${execution}
+${goalInfo}`;
 }
