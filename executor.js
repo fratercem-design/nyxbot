@@ -5,8 +5,8 @@ import research from "./skills/research.js";
 import { generateContent } from "./utils/contentEngine.js";
 import { addKnowledge } from "./utils/memory.js";
 import { publishLatest } from "./utils/publisher.js";
+import { classifyIntent } from "./utils/router.js";
 
-// ---------- JSON ----------
 function loadJSON(file) {
   try {
     return JSON.parse(fs.readFileSync(file, "utf-8"));
@@ -19,7 +19,6 @@ function saveJSON(file, data) {
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
 }
 
-// ---------- DATA ----------
 function loadPlans() {
   return loadJSON("plans.json");
 }
@@ -28,12 +27,10 @@ function savePlans(plans) {
   saveJSON("plans.json", plans);
 }
 
-// ---------- SKILL EXECUTION ----------
 async function runSkill(task) {
-  const skills = loadSkills();
+  const skills = await loadSkills();
   const lower = task.toLowerCase();
 
-  // ---------- CONTENT ----------
   if (
     lower.includes("write") ||
     lower.includes("content") ||
@@ -43,24 +40,22 @@ async function runSkill(task) {
     return await generateContent(task);
   }
 
-  // ---------- RESEARCH ----------
   if (lower.includes("research")) {
     return await research(task);
   }
 
-  // ---------- CUSTOM SKILLS ----------
-  for (let name in skills) {
-    if (lower.includes(name)) {
-      console.log("[Executor] Using skill:", name);
-      return await skills[name](task);
-    }
+  const intent = classifyIntent(task);
+  const skill = skills[intent] || skills.basic;
+
+  if (skill) {
+    console.log("[Executor] Using skill:", intent);
+    return await skill(task);
   }
 
   console.log("[Executor] No skill matched.");
   return JSON.stringify({ message: "No action taken" });
 }
 
-// ---------- PICK NEXT STEP ----------
 function getNextStep(plans) {
   for (let plan of plans) {
     for (let step of plan.steps) {
@@ -72,7 +67,6 @@ function getNextStep(plans) {
   return null;
 }
 
-// ---------- LOOP ----------
 async function executorLoop() {
   try {
     console.log("[Executor] Running...");
@@ -89,19 +83,15 @@ async function executorLoop() {
 
     console.log("[Executor] Executing:", step.task);
 
-    // mark running
     step.status = "running";
     savePlans(plans);
 
-    // run task
     const result = await runSkill(step.task);
 
     console.log("[Executor] Result:", result);
 
-    // ---------- STORE MEMORY ----------
     try {
       const parsed = JSON.parse(result);
-
       if (Array.isArray(parsed)) {
         addKnowledge(parsed, step.task);
         console.log("[Memory] Stored knowledge");
@@ -110,7 +100,6 @@ async function executorLoop() {
       console.log("[Memory] Skipped (not JSON)");
     }
 
-    // ---------- AUTO PUBLISH ----------
     try {
       if (step.task.toLowerCase().includes("write")) {
         publishLatest();
@@ -119,12 +108,10 @@ async function executorLoop() {
       console.log("[Publish] Skipped");
     }
 
-    // mark done
     step.status = "done";
     savePlans(plans);
 
     console.log("[Executor] Completed:", step.task);
-
   } catch (e) {
     console.error("[Executor] Error:", e);
   }
@@ -133,19 +120,3 @@ async function executorLoop() {
 }
 
 executorLoop();
-import { classifyIntent } from "./utils/router.js";
-
-async function runTask(task, skills) {
-  const intent = classifyIntent(task);
-
-  console.log("[Executor] Intent:", intent);
-
-  const skill = skills[intent] || skills.basic;
-
-  const result = await skill(task);
-
-  return {
-    intent,
-    result
-  };
-}

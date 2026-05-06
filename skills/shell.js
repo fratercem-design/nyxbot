@@ -2,11 +2,13 @@ import { exec } from "child_process";
 
 export default function shell(task) {
   return new Promise((resolve) => {
-    if (!task.command) {
+    const command = typeof task === "string" ? task : task.command;
+
+    if (!command) {
       return resolve({ error: "Missing command" });
     }
 
-    exec(task.command, (error, stdout, stderr) => {
+    exec(command, (error, stdout, stderr) => {
       if (error) {
         return resolve({ error: stderr || error.message });
       }

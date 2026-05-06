@@ -1,7 +1,13 @@
 export default async function api(task) {
-  if (!task.url) return { error: "Missing URL" };
+  const urlMatch = typeof task === "string"
+    ? task.match(/https?:\/\/[^\s]+/)
+    : null;
 
-  const res = await fetch(task.url, {
+  const url = urlMatch ? urlMatch[0] : task.url;
+
+  if (!url) return { error: "Missing URL" };
+
+  const res = await fetch(url, {
     method: task.method || "GET",
     headers: task.headers || {},
     body: task.body ? JSON.stringify(task.body) : undefined
