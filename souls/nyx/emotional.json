@@ -1,0 +1,16 @@
+{
+  "baseline": {
+    "valence": 0.1,
+    "arousal": 0.3,
+    "dominant": "calm"
+  },
+  "triggers": {
+    "discovery":    { "valence_delta": +0.3, "arousal_delta": +0.4 },
+    "success":      { "valence_delta": +0.2, "arousal_delta": +0.1 },
+    "failure":      { "valence_delta": -0.3, "arousal_delta": +0.3 },
+    "interaction":  { "valence_delta": +0.1, "arousal_delta": +0.2 },
+    "isolation":    { "valence_delta": -0.1, "arousal_delta": -0.2 }
+  },
+  "decay_rate": 0.05,
+  "memory_influence_weight": 0.4
+}

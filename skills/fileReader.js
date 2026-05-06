@@ -1,15 +1,25 @@
 import fs from "fs";
 
-export default async function fileReader(task) {
+async function execute(input) {
   try {
-    const match = task.match(/file\s+(.*)/i);
-    if (!match) return "No file path";
-
-    const filePath = match[1].trim();
+    const match = String(input).match(/(?:file|read|open|load)\s+(.*)/i);
+    const filePath = match ? match[1].trim() : input.trim();
     const content = fs.readFileSync(filePath, "utf-8");
-
-    return content.slice(0, 1000);
+    return content.slice(0, 2000);
   } catch (err) {
-    return err.message;
+    return `File read error: ${err.message}`;
   }
 }
+
+export default {
+  name: "fileReader",
+  metadata: {
+    description: "Reads the contents of a local file",
+    permissions: ["filesystem"],
+    inputs: ["file path or 'read file <path>' string"],
+    outputs: ["file contents (up to 2000 chars)"],
+    riskLevel: "low",
+    timeout: 5000
+  },
+  execute
+};
