@@ -1,0 +1,146 @@
+{
+  "research_1778085652268": {
+    "value": {
+      "goal": "research AI and summarize findings",
+      "input": "research AI and summarize findings",
+      "output": {
+        "topic": "research AI and summarize findings",
+        "title": "Artificial Intelligence",
+        "summary": "AI is the simulation of human intelligence processes by machines, especially computer systems.",
+        "facts": [
+          "Machine learning is a subset of AI that learns from data",
+          "Neural networks are modeled after the human brain",
+          "LLMs use transformer architecture to process language",
+          "AI applications include NLP, computer vision, and robotics"
+        ],
+        "sources": [
+          "ai-journal.org",
+          "tech-review.com",
+          "deepmind.com"
+        ],
+        "timestamp": "2026-05-06T16:40:52.268Z"
+      }
+    },
+    "timestamp": 1778085652269
+  },
+  "summarize_1778085652270": {
+    "value": {
+      "goal": "research AI and summarize findings",
+      "input": {
+        "topic": "research AI and summarize findings",
+        "title": "Artificial Intelligence",
+        "summary": "AI is the simulation of human intelligence processes by machines, especially computer systems.",
+        "facts": [
+          "Machine learning is a subset of AI that learns from data",
+          "Neural networks are modeled after the human brain",
+          "LLMs use transformer architecture to process language",
+          "AI applications include NLP, computer vision, and robotics"
+        ],
+        "sources": [
+          "ai-journal.org",
+          "tech-review.com",
+          "deepmind.com"
+        ],
+        "timestamp": "2026-05-06T16:40:52.268Z"
+      },
+      "output": {
+        "summary": "\"topic\": \"research AI and summarize findings\",.",
+        "keyTerms": [
+          "topic",
+          "research",
+          "summarize",
+          "findings",
+          "title",
+          "artificial",
+          "intelligence",
+          "summary"
+        ],
+        "wordCount": 70,
+        "sentenceCount": 13,
+        "compressionRatio": "minimal"
+      }
+    },
+    "timestamp": 1778085652270
+  },
+  "result_1778085652270": {
+    "value": {
+      "goal": "research AI and summarize findings",
+      "steps": [
+        {
+          "step": "research",
+          "input": "research AI and summarize findings",
+          "output": {
+            "topic": "research AI and summarize findings",
+            "title": "Artificial Intelligence",
+            "summary": "AI is the simulation of human intelligence processes by machines, especially computer systems.",
+            "facts": [
+              "Machine learning is a subset of AI that learns from data",
+              "Neural networks are modeled after the human brain",
+              "LLMs use transformer architecture to process language",
+              "AI applications include NLP, computer vision, and robotics"
+            ],
+            "sources": [
+              "ai-journal.org",
+              "tech-review.com",
+              "deepmind.com"
+            ],
+            "timestamp": "2026-05-06T16:40:52.268Z"
+          }
+        },
+        {
+          "step": "summarize",
+          "input": {
+            "topic": "research AI and summarize findings",
+            "title": "Artificial Intelligence",
+            "summary": "AI is the simulation of human intelligence processes by machines, especially computer systems.",
+            "facts": [
+              "Machine learning is a subset of AI that learns from data",
+              "Neural networks are modeled after the human brain",
+              "LLMs use transformer architecture to process language",
+              "AI applications include NLP, computer vision, and robotics"
+            ],
+            "sources": [
+              "ai-journal.org",
+              "tech-review.com",
+              "deepmind.com"
+            ],
+            "timestamp": "2026-05-06T16:40:52.268Z"
+          },
+          "output": {
+            "summary": "\"topic\": \"research AI and summarize findings\",.",
+            "keyTerms": [
+              "topic",
+              "research",
+              "summarize",
+              "findings",
+              "title",
+              "artificial",
+              "intelligence",
+              "summary"
+            ],
+            "wordCount": 70,
+            "sentenceCount": 13,
+            "compressionRatio": "minimal"
+          }
+        }
+      ],
+      "final": {
+        "summary": "\"topic\": \"research AI and summarize findings\",.",
+        "keyTerms": [
+          "topic",
+          "research",
+          "summarize",
+          "findings",
+          "title",
+          "artificial",
+          "intelligence",
+          "summary"
+        ],
+        "wordCount": 70,
+        "sentenceCount": 13,
+        "compressionRatio": "minimal"
+      }
+    },
+    "timestamp": 1778085652271
+  }
+}
