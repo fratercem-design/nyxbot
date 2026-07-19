@@ -1,2 +1,3 @@
-const { research } = require("./skills/research.js");
+import research from "./skills/research.js";
 
+export { research };

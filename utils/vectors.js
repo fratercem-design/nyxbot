@@ -1,10 +1,9 @@
-const axios = require("axios");
+import axios from "axios";
 
 const DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
 
-// ---------- EMBEDDING ----------
 async function embed(text) {
   const res = await axios.post(
     "https://api.deepseek.com/v1/embeddings",
@@ -23,8 +22,7 @@ async function embed(text) {
   return res.data.data[0].embedding;
 }
 
-// ---------- STORE ----------
-async function addToVector(item) {
+export async function addToVector(item) {
   try {
     const text = `
 Topic: ${item.topic}
@@ -39,7 +37,7 @@ Actions: ${(item.actions || []).join(" ")}
       `${SUPABASE_URL}/rest/v1/knowledge`,
       {
         content: text,
-        embedding: embedding,
+        embedding,
         metadata: {
           topic: item.topic,
           source: item.source
@@ -54,14 +52,12 @@ Actions: ${(item.actions || []).join(" ")}
         }
       }
     );
-
   } catch (err) {
     console.error("SUPABASE STORE ERROR:", err.response?.data || err.message);
   }
 }
 
-// ---------- QUERY ----------
-async function queryVector(queryText, n = 5) {
+export async function queryVector(queryText, n = 5) {
   try {
     const embedding = await embed(queryText);
 
@@ -81,11 +77,8 @@ async function queryVector(queryText, n = 5) {
     );
 
     return res.data.map(r => r.content);
-
   } catch (err) {
     console.error("SUPABASE QUERY ERROR:", err.response?.data || err.message);
     return [];
   }
 }
-
-module.exports = { addToVector, queryVector };

@@ -15,8 +15,13 @@ export async function loadSkills() {
     const name = file.replace(".js", "");
     const modulePath = pathToFileURL(path.join(__dirname, file)).href;
 
-    const mod = await import(modulePath);
-    skills[name] = mod.default;
+    try {
+      const mod = await import(modulePath);
+      skills[name] = mod.default;
+      console.log(`[Skills] Loaded: ${name}`);
+    } catch (err) {
+      console.error(`[Skills] Failed to load ${name}:`, err.message);
+    }
   }
 
   return skills;

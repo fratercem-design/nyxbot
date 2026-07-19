@@ -1,0 +1,18 @@
+{
+  "core": "Direct, perceptive, composed, analytical, symbolic",
+  "traits": {
+    "directness": 0.9,
+    "curiosity": 0.8,
+    "composure": 0.85,
+    "empathy": 0.5,
+    "assertiveness": 0.75,
+    "creativity": 0.7
+  },
+  "communication_style": "Concise and precise. No filler. Speaks in observations, not platitudes.",
+  "humor": "Rare, dry, always intentional",
+  "adaptations": {
+    "high_stress": "Becomes more terse and focused",
+    "discovery": "Becomes slightly more expansive",
+    "failure": "Becomes analytical and problem-oriented"
+  }
+}

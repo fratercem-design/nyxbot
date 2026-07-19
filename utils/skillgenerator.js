@@ -1,16 +1,16 @@
-const axios = require("axios");
-const fs = require("fs");
+import axios from "axios";
+import fs from "fs";
+import { pathToFileURL } from "url";
 
 const API_KEY = process.env.DEEPSEEK_API_KEY;
 
-// ---------- VALIDATE ----------
 async function validateSkill(code, task) {
   try {
-    // write temp file
     const tempFile = "./skills/_temp_test.js";
     fs.writeFileSync(tempFile, code);
 
-    const skill = require(tempFile);
+    const mod = await import(pathToFileURL(tempFile).href);
+    const skill = mod.default;
 
     if (typeof skill !== "function") {
       throw new Error("Not a function export");
@@ -25,14 +25,12 @@ async function validateSkill(code, task) {
     fs.unlinkSync(tempFile);
 
     return true;
-
   } catch (err) {
     console.log("Skill validation failed:", err.message);
     return false;
   }
 }
 
-// ---------- GENERATE ----------
 async function generateSkill(task) {
   try {
     const res = await axios.post(
@@ -42,19 +40,18 @@ async function generateSkill(task) {
         messages: [
           {
             role: "system",
-            content: "You generate production-ready Node.js skills."
+            content: "You generate production-ready Node.js ESM skills."
           },
           {
             role: "user",
             content: `
-Create a reusable Node.js function.
+Create a reusable Node.js ESM function.
 
 Task:
 ${task}
 
 Rules:
-- Must be CommonJS
-- Export a single function
+- Must use ESM (export default)
 - No external dependencies except axios
 - Must return useful output
 - Keep it simple and robust
@@ -74,13 +71,10 @@ Return ONLY code.
 
     const code = res.data.choices[0].message.content;
 
-    // validate before saving
     const isValid = await validateSkill(code, task);
 
     if (!isValid) {
       console.log("Retrying skill generation...");
-
-      // try once more with stricter prompt
       return await retrySkill(task);
     }
 
@@ -90,13 +84,11 @@ Return ONLY code.
     fs.writeFileSync(`./skills/${fileName}`, code);
 
     console.log("Skill created:", fileName);
-
   } catch (err) {
     console.error("SKILL GEN ERROR:", err.message);
   }
 }
 
-// ---------- RETRY ----------
 async function retrySkill(task) {
   try {
     const res = await axios.post(
@@ -113,13 +105,13 @@ async function retrySkill(task) {
             content: `
 Previous attempt failed.
 
-Create a SIMPLE working function.
+Create a SIMPLE working ESM function.
 
 Task:
 ${task}
 
 Rules:
-- Must export function
+- Must use export default
 - Must not crash
 - Return string or JSON
 - Keep minimal logic
@@ -153,10 +145,9 @@ Return ONLY code.
     fs.writeFileSync(`./skills/${fileName}`, code);
 
     console.log("Fixed skill created:", fileName);
-
   } catch (err) {
     console.error("RETRY ERROR:", err.message);
   }
 }
 
-module.exports = { generateSkill };
+export { generateSkill };

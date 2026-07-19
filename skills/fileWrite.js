@@ -1,13 +1,27 @@
 import fs from "fs/promises";
 
-export default async function fileWrite(task) {
-  const { path, content } = task;
-
-  if (!path || !content) {
-    return { error: "Missing path or content" };
+async function execute(input) {
+  if (typeof input === "object" && input.path && input.content) {
+    await fs.writeFile(input.path, input.content, "utf-8");
+    return `File written: ${input.path}`;
   }
 
-  await fs.writeFile(path, content, "utf-8");
+  const match = String(input).match(/(?:write|save)\s+(?:to\s+)?(\S+)\s+(.+)/is);
+  if (!match) return "fileWrite: provide { path, content } or 'write to <path> <content>'";
 
-  return { success: true, message: `File written: ${path}` };
+  await fs.writeFile(match[1], match[2], "utf-8");
+  return `File written: ${match[1]}`;
 }
+
+export default {
+  name: "fileWrite",
+  metadata: {
+    description: "Writes content to a local file",
+    permissions: ["filesystem"],
+    inputs: ["{ path, content } or 'write to <path> <content>'"],
+    outputs: ["success message"],
+    riskLevel: "medium",
+    timeout: 10000
+  },
+  execute
+};

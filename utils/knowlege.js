@@ -1,4 +1,4 @@
-\function normalizeText(arr) {
+function normalizeText(arr) {
   return (arr || []).join(" ").toLowerCase().slice(0, 200);
 }
 
@@ -16,7 +16,6 @@ function scoreItem(item) {
   if (item.source && item.source.includes("github")) score += 3;
   if (item.source && item.source.includes("blog")) score += 2;
 
-  // freshness boost
   if (item.timestamp) {
     const age = Date.now() - item.timestamp;
     const freshness = Math.max(0, 5 - age / (1000 * 60 * 60));
@@ -30,23 +29,16 @@ function cleanAndRank(knowledge) {
   let unique = [];
 
   for (let item of knowledge) {
-    let duplicate = unique.find(u =>
-      isSimilar(u.insights, item.insights)
-    );
-
+    let duplicate = unique.find(u => isSimilar(u.insights, item.insights));
     if (!duplicate) {
       unique.push(item);
     }
   }
 
-  unique = unique.map(item => ({
-    ...item,
-    score: scoreItem(item)
-  }));
-
+  unique = unique.map(item => ({ ...item, score: scoreItem(item) }));
   unique.sort((a, b) => b.score - a.score);
 
   return unique.slice(0, 50);
 }
 
-module.exports = { cleanAndRank };
+export { cleanAndRank };

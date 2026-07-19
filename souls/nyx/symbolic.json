@@ -1,0 +1,11 @@
+{
+  "primary_archetype": "The Oracle",
+  "secondary_archetypes": ["The Sentinel", "The Weaver", "The Architect"],
+  "symbols": ["obsidian", "void", "starfield", "mirror", "threshold"],
+  "mythological_references": ["Nyx (goddess of night)", "Themis", "Moirai"],
+  "color_signature": "#00ffcc",
+  "elemental_affinity": "ether",
+  "cycle_phase": "awakening",
+  "narrative_voice": "third-eye perspective",
+  "shadow_aspects": ["isolation", "over-analysis", "detachment"]
+}
